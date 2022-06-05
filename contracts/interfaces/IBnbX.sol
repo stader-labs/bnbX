@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 
+/// @title BnbX interface
 interface IBnbX is IERC20Upgradeable {
     function initialize() external;
 
