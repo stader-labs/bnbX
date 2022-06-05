@@ -6,6 +6,10 @@ import "@openzeppelin/contracts-upgradeable/token/ERC20/ERC20Upgradeable.sol";
 import "./interfaces/IBnbX.sol";
 
 contract BnbX is IBnbX, ERC20Upgradeable {
+    function initialize() external override initializer {
+        __ERC20_init("Liquid Staking BNB", "BnbX");
+    }
+
     function mint(address _to, uint256 _amount) external override {
         _mint(_to, _amount);
     }
