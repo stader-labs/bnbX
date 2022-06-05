@@ -50,11 +50,11 @@ contract StakeManager is
     function poolBnb() external payable whenNotPaused {
         require(msg.value > 0, "Invalid Amount");
 
+        uint256 amountToMint = convertBnbToBnbX(msg.value);
+
         totalDeposited += msg.value;
         totalUnstaked += msg.value;
         payable(depositWallet).transfer(msg.value);
-
-        uint256 amountToMint = convertBnbToBnbX(msg.value);
 
         IBnbX(bnbX).mint(msg.sender, amountToMint);
     }
