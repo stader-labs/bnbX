@@ -44,7 +44,7 @@ describe("Stake Manager Contract", () => {
 
     expect(await bnbX.balanceOf(deployer.address)).to.be.eq(zeroBalance);
 
-    await stakeManager.poolBnb({ value: amount });
+    await stakeManager.deposit({ value: amount });
 
     // deployer bnbX balance should increase
     expect(await bnbX.balanceOf(deployer.address)).to.be.eq(amount);
@@ -58,7 +58,7 @@ describe("Stake Manager Contract", () => {
     expect(await bnbX.balanceOf(user.address)).to.be.eq(zeroBalance);
 
     stakeManager = stakeManager.connect(user);
-    await stakeManager.poolBnb({ value: amount });
+    await stakeManager.deposit({ value: amount });
 
     // user bnbX balance should increase
     expect(await bnbX.balanceOf(deployer.address)).to.be.eq(amount);

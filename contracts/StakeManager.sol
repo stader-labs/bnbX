@@ -2,7 +2,6 @@
 pragma solidity ^0.8.0;
 
 import "hardhat/console.sol";
-import "@openzeppelin/contracts-upgradeable/token/ERC20/IERC20Upgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
@@ -47,14 +46,15 @@ contract StakeManager is
      * @dev Allows user to deposit Bnb at BSC and mints BnbX for the user
      * Transfer the user's deposited Bnb to Bot's deposit wallet
      */
-    function poolBnb() external payable whenNotPaused {
-        require(msg.value > 0, "Invalid Amount");
+    function deposit() external payable whenNotPaused {
+        uint256 amount = msg.value;
+        require(amount > 0, "Invalid Amount");
 
-        uint256 amountToMint = convertBnbToBnbX(msg.value);
+        uint256 amountToMint = convertBnbToBnbX(amount);
 
-        totalDeposited += msg.value;
-        totalUnstaked += msg.value;
-        payable(depositWallet).transfer(msg.value);
+        totalDeposited += amount;
+        totalUnstaked += amount;
+        payable(depositWallet).transfer(amount);
 
         IBnbX(bnbX).mint(msg.sender, amountToMint);
     }
@@ -67,7 +67,7 @@ contract StakeManager is
 
     /// @dev Calculates amount of BnbX for `_amount` Bnb
     function convertBnbToBnbX(uint256 _amount) public view returns (uint256) {
-        uint256 totalShares = IERC20Upgradeable(bnbX).totalSupply();
+        uint256 totalShares = IBnbX(bnbX).totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
         uint256 totalPooledBnb = getTotalPooledBnb();
