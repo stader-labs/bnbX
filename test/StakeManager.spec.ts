@@ -20,7 +20,7 @@ describe("Stake Manager Contract", () => {
 
     bnbX = (await upgrades.deployProxy(
       await ethers.getContractFactory("BnbX"),
-      []
+      [manager.address]
     )) as BnbX;
     await bnbX.deployed();
 
@@ -29,6 +29,8 @@ describe("Stake Manager Contract", () => {
       [bnbX.address, manager.address, depositWallet.address]
     )) as StakeManager;
     await stakeManager.deployed();
+
+    await bnbX.setStakeManager(stakeManager.address);
   });
 
   it("Should convert Bnb to BnbX properly", async () => {
