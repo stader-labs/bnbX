@@ -13,5 +13,5 @@ interface IBnbX is IERC20Upgradeable {
 
     function setStakeManager(address _address) external;
 
-    event SetStakeManager(address _address);
+    event SetStakeManager(address indexed _address);
 }
