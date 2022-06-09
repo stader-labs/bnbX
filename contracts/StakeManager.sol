@@ -101,7 +101,7 @@ contract StakeManager is
         return (UUID - 1);
     }
 
-    function completeDelegation(uint256 uuid) external override {
+    function completeDelegation(uint256 uuid) external override whenNotPaused {
         require(
             (uuidToDelegateRequestMap[uuid].amount > 0) &&
                 (uuidToDelegateRequestMap[uuid].endTime == 0),
