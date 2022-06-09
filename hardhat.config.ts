@@ -32,11 +32,6 @@ const config: HardhatUserConfig = {
     ],
   },
   networks: {
-    ropsten: {
-      url: process.env.ROPSTEN_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-    },
     testnet: {
       url: process.env.BINANCE_TESTNET_URL || "",
       accounts:

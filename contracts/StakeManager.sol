@@ -157,7 +157,13 @@ contract StakeManager is
         paused() ? _unpause() : _pause();
     }
 
-    function getContracts() external view override returns (address _bnbX) {
+    function getContracts()
+        external
+        view
+        override
+        returns (address _bnbX, address _tokenHub)
+    {
         _bnbX = bnbX;
+        _tokenHub = tokenHub;
     }
 }

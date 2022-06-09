@@ -43,7 +43,10 @@ interface IStakeManager {
     /// @dev Calculates amount of BnbX for `_amount` Bnb
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
 
-    function getContracts() external view returns (address _bnbX);
+    function getContracts()
+        external
+        view
+        returns (address _bnbX, address _tokenHub);
 
     event Delegate(uint256 uuid, uint256 amount);
     event TransferOut(uint256 amount);
