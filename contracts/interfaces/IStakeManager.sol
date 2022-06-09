@@ -27,7 +27,6 @@ interface IStakeManager {
 
     /**
      * @dev Allows user to deposit Bnb at BSC and mints BnbX for the user
-     * Transfer the user's deposited Bnb to Bot's deposit wallet
      */
     function deposit() external payable;
 

@@ -32,6 +32,8 @@ contract StakeManager is
     mapping(uint256 => DelegateRequest) private uuidToDelegateRequestMap;
     uint256 private UUID;
 
+    uint256 public constant TEN_DECIMALS = 1e10;
+
     /**
      * @param _bnbX - Address of BnbX Token on Binance Smart Chain
      * @param _manager - Address of the manager
@@ -56,7 +58,6 @@ contract StakeManager is
 
     /**
      * @dev Allows user to deposit Bnb at BSC and mints BnbX for the user
-     * Transfer the user's deposited Bnb to Bot's deposit wallet
      */
     function deposit() external payable override whenNotPaused {
         uint256 amount = msg.value;
@@ -76,17 +77,19 @@ contract StakeManager is
         whenNotPaused
         returns (uint256)
     {
-        require(totalUnstaked > 0, "No more funds to stake");
+        require(totalUnstaked >= TEN_DECIMALS, "No more funds to stake");
 
-        uint256 amount = totalUnstaked;
+        uint256 amount = totalUnstaked - (totalUnstaked % TEN_DECIMALS);
         uuidToDelegateRequestMap[UUID++] = DelegateRequest(
             block.timestamp,
             0,
             amount
         );
+        totalOutBuffer += amount;
+        totalUnstaked -= amount;
 
         // sends funds to BC
-        uint64 expireTime = uint64(block.timestamp + 2 minutes); // As per my transaction at tesnet, this should atleast 2 minutes later
+        uint64 expireTime = uint64(block.timestamp + 2 minutes);
         ITokenHub(tokenHub).transferOut(
             address(0),
             bcDepositWallet,
@@ -94,14 +97,16 @@ contract StakeManager is
             expireTime
         );
 
-        totalOutBuffer += amount;
-        totalUnstaked = 0;
         emit TransferOut(amount);
         return (UUID - 1);
     }
 
     function completeDelegation(uint256 uuid) external override {
-        require(uuidToDelegateRequestMap[uuid].amount > 0, "Invalid UUID");
+        require(
+            (uuidToDelegateRequestMap[uuid].amount > 0) &&
+                (uuidToDelegateRequestMap[uuid].endTime == 0),
+            "Invalid UUID"
+        );
 
         uuidToDelegateRequestMap[uuid].endTime = block.timestamp;
         uint256 amount = uuidToDelegateRequestMap[uuid].amount;
