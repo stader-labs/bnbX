@@ -1,29 +1,24 @@
-import * as dotenv from "dotenv";
-
 import { HardhatUserConfig, task } from "hardhat/config";
+
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
 import "@typechain/hardhat";
 import "@openzeppelin/hardhat-upgrades";
+import "@openzeppelin/hardhat-defender";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 
-dotenv.config();
-
-// This is a sample Hardhat task. To learn how to create your own go to
-// https://hardhat.org/guides/create-task.html
-task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
-  const accounts = await hre.ethers.getSigners();
-
-  for (const account of accounts) {
-    console.log(account.address);
-  }
-});
-
-// You need to export an object to set up your config
-// Go to https://hardhat.org/config/ to learn more
+import {
+  DEPLOYER_PRIVATE_KEY,
+  ETHERSCAN_API_KEY,
+  SMART_CHAIN_RPC,
+  GAS_PRICE,
+  DEFENDER_TEAM_API_KEY,
+  DEFENDER_TEAM_API_SECRET_KEY,
+} from "./environment";
 
 const config: HardhatUserConfig = {
+  defaultNetwork: "hardhat",
   solidity: {
     compilers: [
       {
@@ -32,18 +27,27 @@ const config: HardhatUserConfig = {
     ],
   },
   networks: {
+    mainnet: {
+      url: SMART_CHAIN_RPC,
+      accounts: [DEPLOYER_PRIVATE_KEY],
+      gasPrice: Number(GAS_PRICE),
+    },
     testnet: {
-      url: process.env.BINANCE_TESTNET_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
+      url: SMART_CHAIN_RPC,
+      accounts: [DEPLOYER_PRIVATE_KEY],
+      gasPrice: Number(GAS_PRICE),
     },
   },
   gasReporter: {
-    enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD",
+    gasPrice: Number(GAS_PRICE),
   },
   etherscan: {
-    apiKey: process.env.ETHERSCAN_API_KEY,
+    apiKey: ETHERSCAN_API_KEY,
+  },
+  defender: {
+    apiKey: DEFENDER_TEAM_API_KEY,
+    apiSecret: DEFENDER_TEAM_API_SECRET_KEY,
   },
 };
 
