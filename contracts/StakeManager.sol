@@ -90,10 +90,11 @@ contract StakeManager is
 
         // sends funds to BC
         uint64 expireTime = uint64(block.timestamp + 2 minutes);
-        ITokenHub(tokenHub).transferOut(
+        uint256 relayFee = ITokenHub(tokenHub).getMiniRelayFee();
+        ITokenHub(tokenHub).transferOut{value: amount}(
             address(0),
             bcDepositWallet,
-            amount,
+            amount-relayFee,
             expireTime
         );
 
@@ -161,9 +162,10 @@ contract StakeManager is
         external
         view
         override
-        returns (address _bnbX, address _tokenHub)
+        returns (address _bnbX, address _tokenHub, address _bcDepositWallet)
     {
         _bnbX = bnbX;
         _tokenHub = tokenHub;
+        _bcDepositWallet = bcDepositWallet;
     }
 }
