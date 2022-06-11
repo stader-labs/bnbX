@@ -73,13 +73,21 @@ contract StakeManager is
 
     function startDelegation()
         external
+        payable
         override
         whenNotPaused
         returns (uint256)
     {
-        require(totalUnstaked >= TEN_DECIMALS, "No more funds to stake");
+        uint256 tokenHubRelayFee = getTokenHubRelayFee();
+        uint256 relayFeeReceived = msg.value;
+        uint256 amount = totalUnstaked;
 
-        uint256 amount = totalUnstaked - (totalUnstaked % TEN_DECIMALS);
+        require(
+            relayFeeReceived >= tokenHubRelayFee,
+            "Require More Relay Fee, Check getTokenHubRelayFee"
+        );
+        require(amount > 0, "No more funds to stake");
+
         uuidToDelegateRequestMap[UUID++] = DelegateRequest(
             block.timestamp,
             0,
@@ -90,11 +98,10 @@ contract StakeManager is
 
         // sends funds to BC
         uint64 expireTime = uint64(block.timestamp + 2 minutes);
-        uint256 relayFee = ITokenHub(tokenHub).getMiniRelayFee();
-        ITokenHub(tokenHub).transferOut{value: amount}(
+        ITokenHub(tokenHub).transferOut{value: (amount + relayFeeReceived)}(
             address(0),
             bcDepositWallet,
-            amount-relayFee,
+            amount,
             expireTime
         );
 
@@ -162,10 +169,18 @@ contract StakeManager is
         external
         view
         override
-        returns (address _bnbX, address _tokenHub, address _bcDepositWallet)
+        returns (
+            address _bnbX,
+            address _tokenHub,
+            address _bcDepositWallet
+        )
     {
         _bnbX = bnbX;
         _tokenHub = tokenHub;
         _bcDepositWallet = bcDepositWallet;
+    }
+
+    function getTokenHubRelayFee() public view override returns (uint256) {
+        return ITokenHub(tokenHub).relayFee();
     }
 }

@@ -30,7 +30,7 @@ interface IStakeManager {
      */
     function deposit() external payable;
 
-    function startDelegation() external returns (uint256);
+    function startDelegation() external payable returns (uint256);
 
     function completeDelegation(uint256 uuid) external;
 
@@ -46,7 +46,13 @@ interface IStakeManager {
     function getContracts()
         external
         view
-        returns (address _bnbX, address _tokenHub, address _bcDepositWallet);
+        returns (
+            address _bnbX,
+            address _tokenHub,
+            address _bcDepositWallet
+        );
+
+    function getTokenHubRelayFee() external view returns (uint256);
 
     event Delegate(uint256 uuid, uint256 amount);
     event TransferOut(uint256 amount);

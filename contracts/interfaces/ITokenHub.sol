@@ -6,7 +6,7 @@ pragma solidity ^0.8.0;
 /// @title binance TokenHub interface
 /// @dev Helps in cross-chain transfers
 interface ITokenHub {
-    function getMiniRelayFee() external view returns(uint256);
+    function relayFee() external view returns (uint256);
 
     function transferOut(
         address contractAddr,
