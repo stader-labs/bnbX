@@ -46,7 +46,7 @@ interface IStakeManager {
     function getContracts()
         external
         view
-        returns (address _bnbX, address _tokenHub);
+        returns (address _bnbX, address _tokenHub, address _bcDepositWallet);
 
     event Delegate(uint256 uuid, uint256 amount);
     event TransferOut(uint256 amount);
