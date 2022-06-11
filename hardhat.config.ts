@@ -76,7 +76,6 @@ const config: HardhatUserConfig = {
       url: SMART_CHAIN_RPC,
       chainId: 97,
       accounts: [DEPLOYER_PRIVATE_KEY],
-      gasPrice: Number(GAS_PRICE),
     },
   },
   gasReporter: {
