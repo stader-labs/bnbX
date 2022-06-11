@@ -1,5 +1,4 @@
 node_modules
-.env
 coverage
 coverage.json
 typechain
@@ -7,5 +6,9 @@ typechain
 #Hardhat files
 cache
 artifacts
+
+#local env variables
+.env
+.env.test
 
 .openzeppelin
