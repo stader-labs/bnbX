@@ -1,10 +1,6 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-/**
- * @title Stake Manager Contract
- * @dev Handles Staking of Bnb on BSC
- */
 interface IStakeManager {
     struct DelegateRequest {
         uint256 startTime;
@@ -12,35 +8,20 @@ interface IStakeManager {
         uint256 amount;
     }
 
-    /**
-     * @param _bnbX - Address of BnbX Token on Binance Smart Chain
-     * @param _manager - Address of the manager
-     * @param _tokenHub - Address of the manager
-     * @param _bcDepositWallet - Address of deposit Bot Wallet on Beacon Chain
-     */
     function initialize(
         address _bnbX,
         address _manager,
         address _tokenHub,
-        address _bcDepositWallet
+        address _bcDepositWallet,
+        address _bot
     ) external;
 
-    /**
-     * @dev Allows user to deposit Bnb at BSC and mints BnbX for the user
-     */
     function deposit() external payable;
 
     function startDelegation() external payable returns (uint256);
 
     function completeDelegation(uint256 uuid) external;
 
-    ////////////////////////////////////////////////////////////
-    /////                                                    ///
-    /////            ***Helpers & Utilities***               ///
-    /////                                                    ///
-    ////////////////////////////////////////////////////////////
-
-    /// @dev Calculates amount of BnbX for `_amount` Bnb
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
 
     function getContracts()
@@ -49,11 +30,15 @@ interface IStakeManager {
         returns (
             address _bnbX,
             address _tokenHub,
-            address _bcDepositWallet
+            address _bcDepositWallet,
+            address _bot
         );
 
     function getTokenHubRelayFee() external view returns (uint256);
 
+    function setBotAddress(address _bot) external;
+
     event Delegate(uint256 uuid, uint256 amount);
     event TransferOut(uint256 amount);
+    event SetBotAddress(address indexed _address);
 }
