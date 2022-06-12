@@ -14,6 +14,7 @@ import {
   DEPLOYER_PRIVATE_KEY,
   ETHERSCAN_API_KEY,
   SMART_CHAIN_RPC,
+  CHAIN_ID,
   GAS_PRICE,
 } from "./environment";
 
@@ -34,9 +35,10 @@ task("deployStakeManagerProxy", "Deploy StakeManager Proxy only")
   .addPositionalParam("manager")
   .addPositionalParam("tokenHub")
   .addPositionalParam("bcDepositWallet")
+  .addPositionalParam("bot")
   .setAction(
     async (
-      { bnbX, manager, tokenHub, bcDepositWallet },
+      { bnbX, manager, tokenHub, bcDepositWallet, bot },
       hre: HardhatRuntimeEnvironment
     ) => {
       await deployProxy(
@@ -45,7 +47,8 @@ task("deployStakeManagerProxy", "Deploy StakeManager Proxy only")
         bnbX,
         manager,
         tokenHub,
-        bcDepositWallet
+        bcDepositWallet,
+        bot
       );
     }
   );
@@ -68,13 +71,13 @@ const config: HardhatUserConfig = {
   },
   networks: {
     mainnet: {
-      url: "https://bsc-dataseed.binance.org/",
-      chainId: 56,
+      url: SMART_CHAIN_RPC,
+      chainId: Number(CHAIN_ID),
       accounts: [DEPLOYER_PRIVATE_KEY],
     },
     testnet: {
       url: SMART_CHAIN_RPC,
-      chainId: 97,
+      chainId: Number(CHAIN_ID),
       accounts: [DEPLOYER_PRIVATE_KEY],
     },
   },
