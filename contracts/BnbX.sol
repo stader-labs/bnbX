@@ -18,20 +18,20 @@ contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
         _setupRole(DEFAULT_ADMIN_ROLE, _manager);
     }
 
-    function mint(address _to, uint256 _amount)
+    function mint(address _account, uint256 _amount)
         external
         override
         onlyRole(PREDICATE_ROLE)
     {
-        _mint(_to, _amount);
+        _mint(_account, _amount);
     }
 
-    function burn(address _to, uint256 _amount)
+    function burn(address _account, uint256 _amount)
         external
         override
         onlyRole(PREDICATE_ROLE)
     {
-        _burn(_to, _amount);
+        _burn(_account, _amount);
     }
 
     function setStakeManager(address _address)
@@ -43,7 +43,7 @@ contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
 
         _revokeRole(PREDICATE_ROLE, stakeManager);
         stakeManager = _address;
-        _setupRole(PREDICATE_ROLE, stakeManager);
+        _setupRole(PREDICATE_ROLE, _address);
 
         emit SetStakeManager(_address);
     }

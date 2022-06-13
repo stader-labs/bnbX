@@ -1,7 +1,6 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
@@ -140,7 +139,9 @@ contract StakeManager is
     /////                                                    ///
     ////////////////////////////////////////////////////////////
 
-    /// @dev Calculates amount of BnbX for `_amount` Bnb
+    /**
+     * @dev Calculates amount of BnbX for `_amount` Bnb
+     */
     function convertBnbToBnbX(uint256 _amount)
         public
         view
