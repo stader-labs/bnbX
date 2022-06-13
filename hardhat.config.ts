@@ -1,4 +1,6 @@
+import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { HardhatUserConfig, task } from "hardhat/config";
+import { deployDirect, deployProxy } from "./scripts/tasks";
 
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
@@ -12,10 +14,51 @@ import {
   DEPLOYER_PRIVATE_KEY,
   ETHERSCAN_API_KEY,
   SMART_CHAIN_RPC,
+  CHAIN_ID,
   GAS_PRICE,
-  DEFENDER_TEAM_API_KEY,
-  DEFENDER_TEAM_API_SECRET_KEY,
 } from "./environment";
+
+task("deployBnbXProxy", "Deploy BnbX Proxy only")
+  .addPositionalParam("manager")
+  .setAction(async ({ manager }, hre: HardhatRuntimeEnvironment) => {
+    await deployProxy(hre, "BnbX", manager);
+  });
+
+task("deployBnbXImpl", "Deploy BnbX Implementation only").setAction(
+  async (args, hre: HardhatRuntimeEnvironment) => {
+    await deployDirect(hre, "BnbX");
+  }
+);
+
+task("deployStakeManagerProxy", "Deploy StakeManager Proxy only")
+  .addPositionalParam("bnbX")
+  .addPositionalParam("manager")
+  .addPositionalParam("tokenHub")
+  .addPositionalParam("bcDepositWallet")
+  .addPositionalParam("bot")
+  .setAction(
+    async (
+      { bnbX, manager, tokenHub, bcDepositWallet, bot },
+      hre: HardhatRuntimeEnvironment
+    ) => {
+      await deployProxy(
+        hre,
+        "StakeManager",
+        bnbX,
+        manager,
+        tokenHub,
+        bcDepositWallet,
+        bot
+      );
+    }
+  );
+
+task(
+  "deployStakeManagerImpl",
+  "Deploy StakeManager Implementation only"
+).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
+  await deployDirect(hre, "StakeManager");
+});
 
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
@@ -29,13 +72,13 @@ const config: HardhatUserConfig = {
   networks: {
     mainnet: {
       url: SMART_CHAIN_RPC,
+      chainId: Number(CHAIN_ID),
       accounts: [DEPLOYER_PRIVATE_KEY],
-      gasPrice: Number(GAS_PRICE),
     },
     testnet: {
       url: SMART_CHAIN_RPC,
+      chainId: Number(CHAIN_ID),
       accounts: [DEPLOYER_PRIVATE_KEY],
-      gasPrice: Number(GAS_PRICE),
     },
   },
   gasReporter: {
@@ -44,10 +87,6 @@ const config: HardhatUserConfig = {
   },
   etherscan: {
     apiKey: ETHERSCAN_API_KEY,
-  },
-  defender: {
-    apiKey: DEFENDER_TEAM_API_KEY,
-    apiSecret: DEFENDER_TEAM_API_SECRET_KEY,
   },
 };
 

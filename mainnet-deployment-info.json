@@ -1,0 +1,7 @@
+{
+  "proxy_admin": "0x2604E12F994a74ae99d177cbF8fcDb731A88a5d0",
+  "bnbX_proxy": "0xd74a82D85C332f1E3Cfc6e931c42CefA9ba9C1D4",
+  "bnbX_impl": "0xbC9d09538E0dACBAa6d9A2F1c7c1715122d545DB",
+  "stake_manager_proxy": "0x7C9Aed066E019a7dB9084E82748aE70CA592f012",
+  "stake_manager_impl": "0x811C98Db91B20b18dF0f85Ba4c49C2335E856b9C"
+}

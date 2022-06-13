@@ -1,7 +1,6 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-import "hardhat/console.sol";
 import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
@@ -28,32 +27,37 @@ contract StakeManager is
     address private bnbX;
     address private bcDepositWallet;
     address private tokenHub;
+    address private bot;
 
     mapping(uint256 => DelegateRequest) private uuidToDelegateRequestMap;
     uint256 private UUID;
 
-    uint256 public constant TEN_DECIMALS = 1e10;
+    bytes32 public constant BOT = keccak256("BOT");
 
     /**
      * @param _bnbX - Address of BnbX Token on Binance Smart Chain
      * @param _manager - Address of the manager
      * @param _tokenHub - Address of the manager
-     * @param _bcDepositWallet - Beck32 encoding of Address of deposit Bot Wallet on Beacon Chain with `0x` prefix
+     * @param _bcDepositWallet - Beck32 decoding of Address of deposit Bot Wallet on Beacon Chain with `0x` prefix
+     * @param _bot - Address of the Bot
      */
     function initialize(
         address _bnbX,
         address _manager,
         address _tokenHub,
-        address _bcDepositWallet
+        address _bcDepositWallet,
+        address _bot
     ) external override initializer {
         __AccessControl_init();
         __Pausable_init();
 
         _setupRole(DEFAULT_ADMIN_ROLE, _manager);
+        _setupRole(BOT, _bot);
 
         bnbX = _bnbX;
         tokenHub = _tokenHub;
         bcDepositWallet = _bcDepositWallet;
+        bot = _bot;
     }
 
     /**
@@ -73,13 +77,22 @@ contract StakeManager is
 
     function startDelegation()
         external
+        payable
         override
         whenNotPaused
+        onlyRole(BOT)
         returns (uint256)
     {
-        require(totalUnstaked >= TEN_DECIMALS, "No more funds to stake");
+        uint256 tokenHubRelayFee = getTokenHubRelayFee();
+        uint256 relayFeeReceived = msg.value;
+        uint256 amount = totalUnstaked;
 
-        uint256 amount = totalUnstaked - (totalUnstaked % TEN_DECIMALS);
+        require(
+            relayFeeReceived >= tokenHubRelayFee,
+            "Require More Relay Fee, Check getTokenHubRelayFee"
+        );
+        require(amount > 0, "No more funds to stake");
+
         uuidToDelegateRequestMap[UUID++] = DelegateRequest(
             block.timestamp,
             0,
@@ -90,7 +103,7 @@ contract StakeManager is
 
         // sends funds to BC
         uint64 expireTime = uint64(block.timestamp + 2 minutes);
-        ITokenHub(tokenHub).transferOut(
+        ITokenHub(tokenHub).transferOut{value: (amount + relayFeeReceived)}(
             address(0),
             bcDepositWallet,
             amount,
@@ -101,7 +114,12 @@ contract StakeManager is
         return (UUID - 1);
     }
 
-    function completeDelegation(uint256 uuid) external override whenNotPaused {
+    function completeDelegation(uint256 uuid)
+        external
+        override
+        whenNotPaused
+        onlyRole(BOT)
+    {
         require(
             (uuidToDelegateRequestMap[uuid].amount > 0) &&
                 (uuidToDelegateRequestMap[uuid].endTime == 0),
@@ -121,7 +139,9 @@ contract StakeManager is
     /////                                                    ///
     ////////////////////////////////////////////////////////////
 
-    /// @dev Calculates amount of BnbX for `_amount` Bnb
+    /**
+     * @dev Calculates amount of BnbX for `_amount` Bnb
+     */
     function convertBnbToBnbX(uint256 _amount)
         public
         view
@@ -161,9 +181,34 @@ contract StakeManager is
         external
         view
         override
-        returns (address _bnbX, address _tokenHub)
+        returns (
+            address _bnbX,
+            address _tokenHub,
+            address _bcDepositWallet,
+            address _bot
+        )
     {
         _bnbX = bnbX;
         _tokenHub = tokenHub;
+        _bcDepositWallet = bcDepositWallet;
+        _bot = bot;
+    }
+
+    function getTokenHubRelayFee() public view override returns (uint256) {
+        return ITokenHub(tokenHub).relayFee();
+    }
+
+    function setBotAddress(address _address)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(bot != _address, "Old address == new address");
+
+        _revokeRole(BOT, bot);
+        bot = _address;
+        _setupRole(BOT, _address);
+
+        emit SetBotAddress(_address);
     }
 }
