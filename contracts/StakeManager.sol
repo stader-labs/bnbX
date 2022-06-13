@@ -32,6 +32,7 @@ contract StakeManager is
     mapping(uint256 => DelegateRequest) private uuidToDelegateRequestMap;
     uint256 private UUID;
 
+    uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
 
     /**
@@ -85,7 +86,7 @@ contract StakeManager is
     {
         uint256 tokenHubRelayFee = getTokenHubRelayFee();
         uint256 relayFeeReceived = msg.value;
-        uint256 amount = totalUnstaked;
+        uint256 amount = totalUnstaked - (totalUnstaked % TEN_DECIMALS);
 
         require(
             relayFeeReceived >= tokenHubRelayFee,
