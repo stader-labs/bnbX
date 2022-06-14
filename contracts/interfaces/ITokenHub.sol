@@ -1,12 +1,12 @@
 //SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
-// pragma solidity 0.6.4; // this was actual solidity version
-
-/// @title binance TokenHub interface
-/// @dev Helps in cross-chain transfers
+/**
+ * @title binance TokenHub interface
+ * @dev Helps in cross-chain transfers (BSC -> BC)
+ */
 interface ITokenHub {
-    function getMiniRelayFee() external view returns(uint256);
+    function relayFee() external view returns (uint256);
 
     function transferOut(
         address contractAddr,

@@ -1,11 +1,5 @@
 # bnbX
 
-This project demonstrates an advanced Hardhat use case, integrating other tools commonly used alongside Hardhat in the ecosystem.
-
-The project comes with a sample contract, a test for that contract, a sample script that deploys that contract, and an example of a task implementation, which simply lists the available accounts. It also comes with a variety of other tools, preconfigured to work with the project code.
-
-Try running some of the following tasks:
-
 ```shell
 npx hardhat accounts
 npx hardhat compile
@@ -30,10 +24,10 @@ npx solhint 'contracts/**/*.sol' --fix
 To deploy contracts, run:
 
 ```bash
-npx hardhat deployBnbXProxy <manager>
-npx hardhat deployBnbXImpl
-npx hardhat deployStakeManagerProxy <bnbX> <manager> <tokenHub> <bcDepositWallet>
-npx hardhat deployStakeManagerImpl
+npx hardhat deployBnbXProxy <manager> --network <network>
+npx hardhat deployBnbXImpl --network <network>
+npx hardhat deployStakeManagerProxy <bnbX> <manager> <tokenHub> <bcDepositWallet> <bot> --network <network>
+npx hardhat deployStakeManagerImpl --network <network>
 ```
 
 ## Verifying on etherscan
