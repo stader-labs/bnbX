@@ -16,6 +16,8 @@ describe("Stake Manager Contract", () => {
   let stakeManager: StakeManager;
   let tokenHub: TokenHubMock;
 
+  let relayFee: BigNumber;
+
   beforeEach(async () => {
     [deployer, ...users] = await ethers.getSigners();
     manager = deployer;
@@ -47,6 +49,7 @@ describe("Stake Manager Contract", () => {
     await stakeManager.deployed();
 
     await bnbX.setStakeManager(stakeManager.address);
+    relayFee = await tokenHub.relayFee();
   });
 
   it("Should convert Bnb to BnbX properly", async () => {
@@ -76,14 +79,11 @@ describe("Stake Manager Contract", () => {
   });
 
   describe("startDelegation", () => {
-    let relayFee: BigNumber;
-
     beforeEach(async () => {
       stakeManager = stakeManager.connect(bot);
-      relayFee = await tokenHub.relayFee();
     });
 
-    it("Should fail if less or no relayFee is provided", async () => {
+    it("Fails if less or no relayFee is provided", async () => {
       // provided 0 relayFee
       await expect(stakeManager.startDelegation()).to.be.revertedWith(
         "Require More Relay Fee, Check getTokenHubRelayFee"
@@ -100,7 +100,7 @@ describe("Stake Manager Contract", () => {
       ).to.be.revertedWith("No more funds to stake");
     });
 
-    it("Should fail when totalUnStaked funds is less than 1e10", async () => {
+    it("Fails when totalUnStaked funds is less than 1e10", async () => {
       const amount = BigNumber.from("300");
       const zeroBalance = BigNumber.from("0");
 
@@ -127,13 +127,57 @@ describe("Stake Manager Contract", () => {
       expect(await stakeManager.startDelegation({ value: relayFee }))
         .emit(stakeManager, "TransferOut")
         .withArgs(amount.sub(smallAmount));
+      expect(await stakeManager.totalDeposited()).to.be.eq(amount);
       expect(await stakeManager.totalUnstaked()).to.be.eq(smallAmount);
+      expect(await stakeManager.totalOutBuffer()).to.be.eq(
+        amount.sub(smallAmount)
+      );
     });
   });
 
   describe("completeDelegation", () => {
-    it("Fails when Invalid UUID is passed", async () => {});
-    it("Fails when invoked again with stale UUID", async () => {});
-    it("Should ", async () => {});
+    beforeEach(async () => {
+      stakeManager = stakeManager.connect(bot);
+    });
+
+    it("Fails when Invalid UUID is passed", async () => {
+      await expect(stakeManager.completeDelegation(0)).to.be.revertedWith(
+        "Invalid UUID"
+      );
+
+      const amount = ethers.utils.parseEther("0.1");
+      await stakeManager.deposit({ value: amount });
+      await stakeManager.startDelegation({ value: relayFee });
+      await expect(stakeManager.completeDelegation(1)).to.be.revertedWith(
+        "Invalid UUID"
+      );
+      await expect(stakeManager.completeDelegation(2)).to.be.revertedWith(
+        "Invalid UUID"
+      );
+      await expect(stakeManager.completeDelegation(126)).to.be.revertedWith(
+        "Invalid UUID"
+      );
+    });
+
+    it("Should succeed when correct UUID is passed", async () => {
+      const amount = ethers.utils.parseEther("0.1");
+      await stakeManager.deposit({ value: amount });
+      await stakeManager.startDelegation({ value: relayFee });
+      expect(await stakeManager.completeDelegation(0))
+        .emit(stakeManager, "Delegate")
+        .withArgs(0, amount);
+      expect(await stakeManager.totalDeposited()).to.be.eq(amount);
+      expect(await stakeManager.totalOutBuffer()).to.be.eq(0);
+    });
+
+    it("Fails when invoked again with stale UUID", async () => {
+      const amount = ethers.utils.parseEther("0.1");
+      await stakeManager.deposit({ value: amount });
+      await stakeManager.startDelegation({ value: relayFee });
+      await stakeManager.completeDelegation(0);
+      await expect(stakeManager.completeDelegation(0)).to.be.revertedWith(
+        "Invalid UUID"
+      );
+    });
   });
 });
