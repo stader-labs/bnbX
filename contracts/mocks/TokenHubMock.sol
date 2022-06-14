@@ -6,8 +6,6 @@ import {ITokenHub} from "../interfaces/ITokenHub.sol";
 contract TokenHubMock is ITokenHub {
     uint256 public constant TEN_DECIMALS = 1e10;
 
-    constructor() {}
-
     function transferOut(
         address contractAddr,
         address recipient,
@@ -23,5 +21,10 @@ contract TokenHubMock is ITokenHub {
             "invalid received BNB amount: precision loss in amount conversion"
         );
         return true;
+    }
+
+    function relayFee() external pure override returns (uint256) {
+        uint256 fee = 10000000000000000; // 0.01 BNB on testnet, 0.002 BNB on mainnet
+        return fee;
     }
 }
