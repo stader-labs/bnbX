@@ -1,5 +1,3 @@
-const { BncClient, Stake } = require("@binance-chain/javascript-sdk");
-
 (async () => {
   try {
     const client = new BncClient("https://api.binance.org/bc/");
