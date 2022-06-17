@@ -221,7 +221,7 @@ contract StakeManager is
         );
 
         totalDeposited -= _amount;
-        uint256 bnbXToBurn = totalBnbToWithdraw; // To avoid Reentrancy attack
+        uint256 bnbXToBurn = totalBnbXToBurn; // To avoid Reentrancy attack
         totalBnbXToBurn = 0;
         totalBnbToWithdraw = 0;
 
