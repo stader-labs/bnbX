@@ -2,9 +2,20 @@
 pragma solidity ^0.8.0;
 
 interface IStakeManager {
-    struct DelegateRequest {
+    struct BotDelegateRequest {
         uint256 startTime;
         uint256 endTime;
+        uint256 amount;
+    }
+
+    struct BotUndelegateRequest {
+        uint256 startTime;
+        uint256 endTime;
+        uint256 amount;
+    }
+
+    struct WithdrawalRequest {
+        uint256 uuid;
         uint256 amount;
     }
 
@@ -18,11 +29,26 @@ interface IStakeManager {
 
     function deposit() external payable;
 
-    function startDelegation() external payable returns (uint256);
+    function startDelegation()
+        external
+        payable
+        returns (uint256 _uuid, uint256 _amount);
 
     function completeDelegation(uint256 uuid) external;
 
+    function requestWithdraw(uint256 _amount) external;
+
+    function claimWithdraw(uint256 _idx) external;
+
+    function startUndelegation()
+        external
+        returns (uint256 _uuid, uint256 _amount);
+
+    function completeUndelegation(uint256 _uuid) external payable;
+
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
+
+    function convertBnbXToBnb(uint256 _amount) external view returns (uint256);
 
     function getContracts()
         external
@@ -36,9 +62,25 @@ interface IStakeManager {
 
     function getTokenHubRelayFee() external view returns (uint256);
 
+    function getUserWithdrawalRequests(address _address)
+        external
+        view
+        returns (WithdrawalRequest[] memory);
+
     function setBotAddress(address _bot) external;
 
     event Delegate(uint256 uuid, uint256 amount);
     event TransferOut(uint256 amount);
     event SetBotAddress(address indexed _address);
+    event RequestWithdraw(
+        address indexed _account,
+        uint256 _amountBnbX,
+        uint256 _amountBnb
+    );
+    event ClaimWithdrawal(
+        address indexed _account,
+        uint256 _idx,
+        uint256 _amount
+    );
+    event Undelegate(uint256 uuid, uint256 amount);
 }
