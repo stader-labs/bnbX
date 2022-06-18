@@ -3,7 +3,6 @@ const AWS = require("aws-sdk");
 
 module.exports = async function startDelegation(settings) {
   // AWS tools
-  const sqs = new AWS.SQS();
   const secretClient = new AWS.SecretsManager({
     region: settings.secretRegion,
   });
@@ -16,35 +15,24 @@ module.exports = async function startDelegation(settings) {
   // BSC tools
   const provider = new ethers.providers.JsonRpcProvider(settings.rpc);
   const secret = JSON.parse(secretResponse.SecretString);
-  const depositBotWallet = new ethers.Wallet(secret.key, provider);
+  const depositBotWallet = new ethers.Wallet(secret.bsc, provider);
   const stakeManagerContractConnected = new ethers.Contract(
     settings.stakeManagerAddress,
     settings.stakeManagerAbi,
     depositBotWallet
   );
-  const response = await stakeManagerContractConnected.startDelegation();
-  console.log(response);
 
-  const params = {
-    MessageAttributes: {
-      Title: {
-        DataType: "String",
-        StringValue: "The Whistler",
-      },
-      Author: {
-        DataType: "String",
-        StringValue: "John Grisham",
-      },
-      WeeksOn: {
-        DataType: "Number",
-        StringValue: "6",
-      },
-    },
-    MessageBody: "a",
-    MessageDeduplicationId: "DeduplicationId1",
-    MessageGroupId: "Group1",
-    QueueUrl: settings.queueUrl,
-  };
+  const amountToStake = await stakeManagerContractConnected.totalUnstaked();
+  const amountToStakeInBNB = ethers.utils.formatEther(amountToStake);
+  const stakeThreshold = ethers.utils.parseEther(settings.stakeThreshold);
+  console.log(`Amount to stake: ${amountToStakeInBNB} BNB`);
+  if (amountToStake.lt(stakeThreshold)) {
+    throw new Error(
+      `Amount to stake ${amountToStakeInBNB} BNB is lower than required minimum of ${settings.stakeThreshold} BNB`
+    );
+  }
 
-  return sqs.sendMessage(params).promise();
+  const options = { value: ethers.utils.parseEther(settings.relayFee) };
+  const response = await stakeManagerContractConnected.startDelegation(options);
+  return response;
 };
