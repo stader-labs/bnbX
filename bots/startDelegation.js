@@ -13,7 +13,7 @@ module.exports = async function startDelegation(settings) {
     .promise();
 
   // BSC tools
-  const provider = new ethers.providers.JsonRpcProvider(settings.rpc);
+  const provider = new ethers.providers.JsonRpcProvider(settings.rpcBSC);
   const secret = JSON.parse(secretResponse.SecretString);
   const depositBotWallet = new ethers.Wallet(secret.bsc, provider);
   const stakeManagerContractConnected = new ethers.Contract(

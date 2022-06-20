@@ -1,7 +1,7 @@
 const { ethers } = require("ethers");
 const AWS = require("aws-sdk");
 
-module.exports = async function startDelegation(settings, content) {
+module.exports = async function startDelegation(settings) {
   // AWS tools
   const secretClient = new AWS.SecretsManager({
     region: settings.secretRegion,
@@ -14,7 +14,7 @@ module.exports = async function startDelegation(settings, content) {
   const uuid = 123124;
 
   // BSC tools
-  const provider = new ethers.providers.JsonRpcProvider(settings.rpc);
+  const provider = new ethers.providers.JsonRpcProvider(settings.rpcBSC);
   const secret = JSON.parse(secretResponse.SecretString);
   const depositBotWallet = new ethers.Wallet(secret.key, provider);
   const stakeManagerContractConnected = new ethers.Contract(

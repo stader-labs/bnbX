@@ -1,14 +1,16 @@
 const startDelegation = require("./startDelegation");
 const completeDelegation = require("./completeDelegation");
+const doDelegation = require("./doDelegation");
+const transferDeposit = require("./transferDeposit");
 const stakeManagerJson = require("./StakeManager.json");
 
 const settings = {
   stakeManagerAddress: process.env.STAKE_MANAGER_ADDRESS,
-  rpc: process.env.RPC,
-  queueUrl: process.env.QUEUE_URL,
+  rpcBSC: process.env.RPC_BSC,
+  rpcBC: process.env.RPC_BC,
   secretId: process.env.SECRET_ID,
   secretRegion: process.env.SECRET_REGION,
-  stakeThreshold: process.env.STAKE_THRESHOLD,
+  stakeThreshold: process.env.STAKE_THRESHOLD_BNB,
   relayFee: process.env.RELAY_FEE,
   stakeManagerAbi: stakeManagerJson.abi,
 };
@@ -19,8 +21,8 @@ exports.handler = async function (event, context) {
     console.log("Starting bot");
 
     console.log("stakeManagerAddress:", settings.stakeManagerAddress);
-    console.log("rpc:", settings.rpc);
-    console.log("queueUrl:", settings.queueUrl);
+    console.log("rpcBSC:", settings.rpcBSC);
+    console.log("rpcBC:", settings.rpcBC);
     console.log("secretId:", settings.secretId);
     console.log("secretRegion:", settings.secretRegion);
     console.log("stakeThreshold", settings.stakeThreshold);
@@ -33,7 +35,13 @@ exports.handler = async function (event, context) {
         result = await startDelegation(settings);
         break;
       case "completeDelegation":
-        result = await completeDelegation(settings, event.content);
+        result = await completeDelegation(settings);
+        break;
+      case "doDelegation":
+        result = await doDelegation(settings, event.content);
+        break;
+      case "transferDeposit":
+        result = await transferDeposit(settings);
         break;
       default:
         context.fail("Unsupported event type");
