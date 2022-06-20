@@ -62,6 +62,16 @@ interface IStakeManager {
 
     function getTokenHubRelayFee() external view returns (uint256);
 
+    function getBotDelegateRequest(uint256 uuid)
+        external
+        view
+        returns (BotDelegateRequest memory);
+    
+    function getBotUndelegateRequest(uint256 uuid)
+        external
+        view
+        returns (BotUndelegateRequest memory);
+
     function getUserWithdrawalRequests(address _address)
         external
         view

@@ -1,5 +1,5 @@
-const { ethers } = require("ethers");
 const AWS = require("aws-sdk");
+const { ethers } = require("ethers");
 
 module.exports = async function startDelegation(settings) {
   // AWS tools
@@ -11,10 +11,10 @@ module.exports = async function startDelegation(settings) {
       SecretId: settings.secretId,
     })
     .promise();
+  const secret = JSON.parse(secretResponse.SecretString);
 
   // BSC tools
   const provider = new ethers.providers.JsonRpcProvider(settings.rpcBSC);
-  const secret = JSON.parse(secretResponse.SecretString);
   const depositBotWallet = new ethers.Wallet(secret.bsc, provider);
   const stakeManagerContractConnected = new ethers.Contract(
     settings.stakeManagerAddress,
