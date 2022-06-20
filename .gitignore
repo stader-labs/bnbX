@@ -12,3 +12,6 @@ artifacts
 .env.test
 
 .openzeppelin
+
+# MacOS
+.DS_Store

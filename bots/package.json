@@ -1,0 +1,17 @@
+{
+  "name": "bsc",
+  "version": "1.0.0",
+  "description": "BSC bots",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@binance-chain/javascript-sdk": "^4.2.0",
+    "aws": "^0.0.3-2",
+    "aws-xray-sdk": "^3.3.6",
+    "ethers": "^5.6.8"
+  }
+}

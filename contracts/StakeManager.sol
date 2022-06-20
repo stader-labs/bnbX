@@ -333,6 +333,24 @@ contract StakeManager is
         return ITokenHub(tokenHub).relayFee();
     }
 
+    function getBotDelegateRequest(uint256 uuid)
+        external
+        view
+        override
+        returns (BotDelegateRequest memory) 
+    {
+        return uuidToBotDelegateRequestMap[uuid];
+    }
+
+    function getBotUndelegateRequest(uint256 uuid)
+        external
+        view
+        override
+        returns (BotUndelegateRequest memory) 
+    {
+        return uuidToBotUndelegateRequestMap[uuid];
+    }
+
     /**
      * @dev Retrieves all withdrawal requests initiated by the given address
      * @param _address - Address of an user
