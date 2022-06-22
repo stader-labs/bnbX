@@ -234,14 +234,19 @@ describe("Stake Manager Contract", () => {
       ).to.be.revertedWith("ERC20: transfer amount exceeds balance");
     });
 
-    // it("Fails if user requests to withdraw before it is actually staked at Beacon Chain", async () => {
-    //   const amount = ethers.utils.parseEther("2");
-    //   await uStakeManager.deposit({ value: amount });
-    //   await bnbXApprove(user, amount);
-    //   await expect(
-    //     uStakeManager.requestWithdraw(ethers.utils.parseEther("1"))
-    //   ).to.be.revertedWith("Not enough BNB to withdraw");
-    // });
+    it("Fails if user requests to withdraw before it is actually staked at Beacon Chain", async () => {
+      const amount = ethers.utils.parseEther("2");
+      await uStakeManager.deposit({ value: amount });
+      await bnbXApprove(user, amount);
+      await expect(
+        uStakeManager.requestWithdraw(ethers.utils.parseEther("1"))
+      ).to.be.revertedWith("Not enough BNB to withdraw");
+
+      await bStakeManager.startDelegation({ value: relayFee });
+      await expect(
+        uStakeManager.requestWithdraw(ethers.utils.parseEther("1"))
+      ).to.be.revertedWith("Not enough BNB to withdraw");
+    });
 
     it("Should successfully raise withdraw request", async () => {
       const amount = ethers.utils.parseEther("2");

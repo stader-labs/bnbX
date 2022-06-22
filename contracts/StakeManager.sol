@@ -185,8 +185,8 @@ contract StakeManager is
             address(this),
             _amount
         );
-        uint256 totalPooledBnb = _getTotalPooledBnb();
-        require(amountInBnb <= totalPooledBnb, "Not enough BNB to withdraw");
+        uint256 totalStakedBnb = getTotalStakedBnb();
+        require(amountInBnb <= totalStakedBnb, "Not enough BNB to withdraw");
 
         totalBnbToWithdraw += amountInBnb;
         totalBnbXToBurn += _amount;
@@ -306,14 +306,14 @@ contract StakeManager is
     /////                                                    ///
     ////////////////////////////////////////////////////////////
 
-    function _getTotalPooledBnb() internal view returns (uint256) {
+    function getTotalPooledBnb() public view override returns (uint256) {
         return (totalDeposited + totalRedelegated);
     }
 
     /**
      * @dev Calculates total Bnb staked on Beacon chain
      */
-    function _getTotalStakedBnb() internal view returns (uint256) {
+    function getTotalStakedBnb() public view override returns (uint256) {
         return (totalDeposited +
             totalRedelegated -
             totalUnstaked -
@@ -394,7 +394,7 @@ contract StakeManager is
         uint256 totalShares = IBnbX(bnbX).totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
-        uint256 totalPooledBnb = _getTotalPooledBnb();
+        uint256 totalPooledBnb = getTotalPooledBnb();
         totalPooledBnb = totalPooledBnb == 0 ? 1 : totalPooledBnb;
 
         uint256 amountInBnbX = (_amount * totalShares) / totalPooledBnb;
@@ -414,7 +414,7 @@ contract StakeManager is
         uint256 totalShares = IBnbX(bnbX).totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
-        uint256 totalPooledBnb = _getTotalPooledBnb();
+        uint256 totalPooledBnb = getTotalPooledBnb();
         totalPooledBnb = totalPooledBnb == 0 ? 1 : totalPooledBnb;
 
         uint256 amountInBnb = (_amount * totalPooledBnb) / totalShares;
