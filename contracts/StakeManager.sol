@@ -94,6 +94,12 @@ contract StakeManager is
         IBnbX(bnbX).mint(msg.sender, amountToMint);
     }
 
+    /**
+     * @dev Allows bot to transfer users' funds from this contract to botDepositWallet at Beacon Chain
+     * @return _uuid - unique id against which this transfer event was logged
+     * @return _amount - Amount of funds transferred for staking
+     * @notice Use `getBotDelegateRequest` function to get more details of the logged data
+     */
     function startDelegation()
         external
         payable
@@ -135,23 +141,28 @@ contract StakeManager is
         _amount = amount;
     }
 
-    function completeDelegation(uint256 uuid)
+    /**
+     * @dev Allows bot to mark the delegateRequest as complete and update the state variables
+     * @param _uuid - unique id for which the delgation was completion
+     * @notice Use `getBotDelegateRequest` function to get more details of the logged data
+     */
+    function completeDelegation(uint256 _uuid)
         external
         override
         whenNotPaused
         onlyRole(BOT)
     {
         require(
-            (uuidToBotDelegateRequestMap[uuid].amount > 0) &&
-                (uuidToBotDelegateRequestMap[uuid].endTime == 0),
+            (uuidToBotDelegateRequestMap[_uuid].amount > 0) &&
+                (uuidToBotDelegateRequestMap[_uuid].endTime == 0),
             "Invalid UUID"
         );
 
-        uuidToBotDelegateRequestMap[uuid].endTime = block.timestamp;
-        uint256 amount = uuidToBotDelegateRequestMap[uuid].amount;
+        uuidToBotDelegateRequestMap[_uuid].endTime = block.timestamp;
+        uint256 amount = uuidToBotDelegateRequestMap[_uuid].amount;
         totalOutBuffer -= amount;
 
-        emit Delegate(uuid, amount);
+        emit Delegate(_uuid, amount);
     }
 
     ////////////////////////////////////////////////////////////
@@ -160,6 +171,11 @@ contract StakeManager is
     /////                                                    ///
     ////////////////////////////////////////////////////////////
 
+    /**
+     * @dev Allows user to request for unstake/withdraw funds
+     * @param _amount - Amount of BnbX to swap for withdraw
+     * @notice User must have approved this contract to spend BnbX
+     */
     function requestWithdraw(uint256 _amount) external override whenNotPaused {
         require(_amount > 0, "Invalid Amount");
         uint256 amountInBnb = convertBnbXToBnb(_amount);
@@ -200,9 +216,15 @@ contract StakeManager is
         userRequests.pop();
         AddressUpgradeable.sendValue(payable(user), amount);
 
-        emit ClaimWithdrawal(user, _idx, withdrawRequest.amount);
+        emit ClaimWithdrawal(user, _idx, amount);
     }
 
+    /**
+     * @dev Bot uses this function to communicate regarding start of Undelegation Event
+     * @return _uuid - unique id against which this Undelegation event was logged
+     * @return _amount - Amount of funds required to Unstake
+     * @notice Use `getBotUndelegateRequest` function to get more details of the logged data
+     */
     function startUndelegation()
         external
         override
@@ -228,6 +250,13 @@ contract StakeManager is
         IBnbX(bnbX).burn(address(this), bnbXToBurn);
     }
 
+    /**
+     * @dev Bot uses this function to send unstaked funds to this contract and
+     * communicate regarding completion of Undelegation Event
+     * @param _uuid - unique id against which this Undelegation event was logged
+     * @notice Use `getBotUndelegateRequest` function to get more details of the logged data
+     * @notice send exact amount of fund as requested
+     */
     function completeUndelegation(uint256 _uuid)
         external
         payable
@@ -249,6 +278,102 @@ contract StakeManager is
         uuidToBotUndelegateRequestMap[_uuid].endTime = block.timestamp;
 
         emit Undelegate(_uuid, amount);
+    }
+
+    ////////////////////////////////////////////////////////////
+    /////                                                    ///
+    /////                 ***Setters***                      ///
+    /////                                                    ///
+    ////////////////////////////////////////////////////////////
+
+    function setBotAddress(address _address)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(bot != _address, "Old address == new address");
+
+        _revokeRole(BOT, bot);
+        bot = _address;
+        _setupRole(BOT, _address);
+
+        emit SetBotAddress(_address);
+    }
+
+    ////////////////////////////////////////////////////////////
+    /////                                                    ///
+    /////                 ***Getters***                      ///
+    /////                                                    ///
+    ////////////////////////////////////////////////////////////
+
+    function _getTotalPooledBnb() internal view returns (uint256) {
+        return (totalDeposited + totalRedelegated);
+    }
+
+    /**
+     * @dev Calculates total Bnb staked on Beacon chain
+     */
+    function _getTotalStakedBnb() internal view returns (uint256) {
+        return (totalDeposited +
+            totalRedelegated -
+            totalUnstaked -
+            totalOutBuffer);
+    }
+
+    function getContracts()
+        external
+        view
+        override
+        returns (
+            address _bnbX,
+            address _tokenHub,
+            address _bcDepositWallet,
+            address _bot
+        )
+    {
+        _bnbX = bnbX;
+        _tokenHub = tokenHub;
+        _bcDepositWallet = bcDepositWallet;
+        _bot = bot;
+    }
+
+    /**
+     * @return relayFee required by TokenHub contract to transfer funds from BSC -> BC
+     */
+    function getTokenHubRelayFee() public view override returns (uint256) {
+        return ITokenHub(tokenHub).relayFee();
+    }
+
+    function getBotDelegateRequest(uint256 uuid)
+        external
+        view
+        override
+        returns (BotDelegateRequest memory)
+    {
+        return uuidToBotDelegateRequestMap[uuid];
+    }
+
+    function getBotUndelegateRequest(uint256 uuid)
+        external
+        view
+        override
+        returns (BotUndelegateRequest memory)
+    {
+        return uuidToBotUndelegateRequestMap[uuid];
+    }
+
+    /**
+     * @dev Retrieves all withdrawal requests initiated by the given address
+     * @param _address - Address of an user
+     * @return userWithdrawalRequests array of user withdrawal requests
+     */
+    function getUserWithdrawalRequests(address _address)
+        external
+        view
+        override
+        returns (WithdrawalRequest[] memory)
+    {
+        return userWithdrawalRequests[_address];
     }
 
     ////////////////////////////////////////////////////////////
@@ -277,6 +402,9 @@ contract StakeManager is
         return amountInBnbX;
     }
 
+    /**
+     * @dev Calculates amount of Bnb for `_amount` BnbX
+     */
     function convertBnbXToBnb(uint256 _amount)
         public
         view
@@ -294,88 +422,10 @@ contract StakeManager is
         return amountInBnb;
     }
 
-    function _getTotalPooledBnb() internal view returns (uint256) {
-        return (totalDeposited + totalRedelegated);
-    }
-
-    function _getTotalStakedBnb() internal view returns (uint256) {
-        return (totalDeposited +
-            totalRedelegated -
-            totalUnstaked -
-            totalOutBuffer);
-    }
-
     /**
      * @dev Flips the pause state
      */
     function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         paused() ? _unpause() : _pause();
-    }
-
-    function getContracts()
-        external
-        view
-        override
-        returns (
-            address _bnbX,
-            address _tokenHub,
-            address _bcDepositWallet,
-            address _bot
-        )
-    {
-        _bnbX = bnbX;
-        _tokenHub = tokenHub;
-        _bcDepositWallet = bcDepositWallet;
-        _bot = bot;
-    }
-
-    function getTokenHubRelayFee() public view override returns (uint256) {
-        return ITokenHub(tokenHub).relayFee();
-    }
-
-    function getBotDelegateRequest(uint256 uuid)
-        external
-        view
-        override
-        returns (BotDelegateRequest memory) 
-    {
-        return uuidToBotDelegateRequestMap[uuid];
-    }
-
-    function getBotUndelegateRequest(uint256 uuid)
-        external
-        view
-        override
-        returns (BotUndelegateRequest memory) 
-    {
-        return uuidToBotUndelegateRequestMap[uuid];
-    }
-
-    /**
-     * @dev Retrieves all withdrawal requests initiated by the given address
-     * @param _address - Address of an user
-     * @return userWithdrawalRequests array of user withdrawal requests
-     */
-    function getUserWithdrawalRequests(address _address)
-        external
-        view
-        override
-        returns (WithdrawalRequest[] memory)
-    {
-        return userWithdrawalRequests[_address];
-    }
-
-    function setBotAddress(address _address)
-        external
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        require(bot != _address, "Old address == new address");
-
-        _revokeRole(BOT, bot);
-        bot = _address;
-        _setupRole(BOT, _address);
-
-        emit SetBotAddress(_address);
     }
 }

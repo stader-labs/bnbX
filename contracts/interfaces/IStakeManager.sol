@@ -34,7 +34,7 @@ interface IStakeManager {
         payable
         returns (uint256 _uuid, uint256 _amount);
 
-    function completeDelegation(uint256 uuid) external;
+    function completeDelegation(uint256 _uuid) external;
 
     function requestWithdraw(uint256 _amount) external;
 
@@ -46,9 +46,7 @@ interface IStakeManager {
 
     function completeUndelegation(uint256 _uuid) external payable;
 
-    function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
-
-    function convertBnbXToBnb(uint256 _amount) external view returns (uint256);
+    function setBotAddress(address _bot) external;
 
     function getContracts()
         external
@@ -62,12 +60,12 @@ interface IStakeManager {
 
     function getTokenHubRelayFee() external view returns (uint256);
 
-    function getBotDelegateRequest(uint256 uuid)
+    function getBotDelegateRequest(uint256 _uuid)
         external
         view
         returns (BotDelegateRequest memory);
-    
-    function getBotUndelegateRequest(uint256 uuid)
+
+    function getBotUndelegateRequest(uint256 _uuid)
         external
         view
         returns (BotUndelegateRequest memory);
@@ -77,10 +75,12 @@ interface IStakeManager {
         view
         returns (WithdrawalRequest[] memory);
 
-    function setBotAddress(address _bot) external;
+    function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
 
-    event Delegate(uint256 uuid, uint256 amount);
-    event TransferOut(uint256 amount);
+    function convertBnbXToBnb(uint256 _amount) external view returns (uint256);
+
+    event Delegate(uint256 _uuid, uint256 _amount);
+    event TransferOut(uint256 _amount);
     event SetBotAddress(address indexed _address);
     event RequestWithdraw(
         address indexed _account,
@@ -92,5 +92,5 @@ interface IStakeManager {
         uint256 _idx,
         uint256 _amount
     );
-    event Undelegate(uint256 uuid, uint256 amount);
+    event Undelegate(uint256 _uuid, uint256 _amount);
 }
