@@ -48,6 +48,10 @@ interface IStakeManager {
 
     function setBotAddress(address _bot) external;
 
+    function getTotalPooledBnb() external view returns (uint256);
+
+    function getTotalStakedBnb() external view returns (uint256);
+
     function getContracts()
         external
         view

@@ -306,14 +306,14 @@ contract StakeManager is
     /////                                                    ///
     ////////////////////////////////////////////////////////////
 
-    function getTotalPooledBnb() public view returns (uint256) {
+    function getTotalPooledBnb() public view override returns (uint256) {
         return (totalDeposited + totalRedelegated);
     }
 
     /**
      * @dev Calculates total Bnb staked on Beacon chain
      */
-    function getTotalStakedBnb() public view returns (uint256) {
+    function getTotalStakedBnb() public view override returns (uint256) {
         return (totalDeposited +
             totalRedelegated -
             totalUnstaked -
