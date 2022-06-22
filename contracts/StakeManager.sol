@@ -203,7 +203,12 @@ contract StakeManager is
         totalBnbToWithdraw += amountInBnb;
         totalBnbXToBurn += _amount;
         userWithdrawalRequests[msg.sender].push(
-            WithdrawalRequest(undelegateUUID, amountInBnb)
+            WithdrawalRequest(
+                undelegateUUID,
+                amountInBnb,
+                block.timestamp,
+                block.timestamp + 14 days
+            )
         );
 
         emit RequestWithdraw(msg.sender, _amount, amountInBnb);

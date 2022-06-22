@@ -17,6 +17,8 @@ interface IStakeManager {
     struct WithdrawalRequest {
         uint256 uuid;
         uint256 amount;
+        uint256 startTime;
+        uint256 endTime;
     }
 
     function initialize(
