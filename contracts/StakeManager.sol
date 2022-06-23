@@ -165,6 +165,18 @@ contract StakeManager is
         emit Delegate(_uuid, amount);
     }
 
+    function increaseTotalRedelegated(uint256 _amount)
+        external
+        override
+        whenNotPaused
+        onlyRole(BOT)
+    {
+        require(_amount > 0, "No fund");
+        totalRedelegated += _amount;
+
+        emit Redelegate(_amount);
+    }
+
     ////////////////////////////////////////////////////////////
     /////                                                    ///
     /////              ***Withdraw Flow***                   ///

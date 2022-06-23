@@ -36,6 +36,8 @@ interface IStakeManager {
 
     function completeDelegation(uint256 _uuid) external;
 
+    function increaseTotalRedelegated(uint256 _amount) external;
+
     function requestWithdraw(uint256 _amount) external;
 
     function claimWithdraw(uint256 _idx) external;
@@ -97,4 +99,5 @@ interface IStakeManager {
         uint256 _amount
     );
     event Undelegate(uint256 _uuid, uint256 _amount);
+    event Redelegate(uint256 _amount);
 }
