@@ -1,5 +1,11 @@
 const { ethers } = require("ethers");
-const { BncClient, crypto, types } = require("@binance-chain/javascript-sdk");
+const {
+  BncClient,
+  crypto,
+  types,
+  Transaction,
+  amino,
+} = require("@binance-chain/javascript-sdk");
 
 class CustomBncClient {
   constructor(rpc, privateKey = null) {
@@ -52,7 +58,7 @@ class CustomBncClient {
       delegateMessage.getSignMsg(),
       delegateAddress,
       null,
-      memo
+      memo.toString()
     );
 
     return await this.client._broadcastDelegate(signedTx);
@@ -84,13 +90,52 @@ class CustomBncClient {
     console.log(
       `Sending ${amount} BNB to ${toAddress} with memo: ${memo} from ${this.getClientKeyAddress()}`
     );
-    return this.client.transfer(
-      this.getClientKeyAddress(),
-      toAddress,
-      amount.toString(),
-      "BNB",
-      memo
+
+    amount = Number(ethers.utils.parseUnits(amount, 8));
+
+    const message = await this.buildtransferMsg({
+      fromAddress: this.getClientKeyAddress(),
+      toAddress: toAddress,
+      amount: amount,
+      denom: "BNB",
+      memo: memo.toString(),
+    });
+
+    const tx = new Transaction(message);
+    const signedTx = tx.sign(this.client.getPrivateKey());
+    const txBytes = signedTx.serialize();
+    return this.client.sendRawTransaction(txBytes);
+  }
+
+  async buildtransferMsg({ fromAddress, toAddress, amount, denom, memo }) {
+    const outputs = [
+      {
+        address: toAddress,
+        coins: [
+          {
+            denom: denom,
+            amount: amount,
+          },
+        ],
+      },
+    ];
+    const sendMsg = new types.SendMsg(fromAddress, outputs);
+
+    const data = await this.client._httpClient.request(
+      "get",
+      `${this.client.api.getAccount}/${fromAddress}`
     );
+    const sequence = data.result.sequence;
+    this.client.account_number = data.result.account_number;
+
+    return {
+      chainId: "Binance-Chain-Tigris",
+      accountNumber: this.client.account_number,
+      sequence: sequence,
+      baseMsg: sendMsg,
+      memo: memo,
+      source: this.client._source,
+    };
   }
 
   getClientKeyAddress() {
