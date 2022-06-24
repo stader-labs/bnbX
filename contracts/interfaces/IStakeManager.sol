@@ -18,7 +18,7 @@ interface IStakeManager {
         uint256 uuid;
         uint256 amount;
         uint256 startTime;
-        uint256 endTime;
+        bool isClaimable;
     }
 
     function initialize(

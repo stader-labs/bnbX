@@ -207,7 +207,7 @@ contract StakeManager is
                 undelegateUUID,
                 amountInBnb,
                 block.timestamp,
-                block.timestamp + 14 days
+                false
             )
         );
 
