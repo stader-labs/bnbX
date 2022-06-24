@@ -390,7 +390,20 @@ contract StakeManager is
         override
         returns (WithdrawalRequest[] memory)
     {
-        return userWithdrawalRequests[_address];
+        WithdrawalRequest[] memory userRequests = userWithdrawalRequests[
+            _address
+        ];
+
+        for (uint256 idx = 0; idx < userRequests.length; idx++) {
+            WithdrawalRequest memory withdrawRequest = userRequests[idx];
+            if (withdrawRequest.isClaimable) continue;
+
+            uint256 uuid = withdrawRequest.uuid;
+            withdrawRequest.isClaimable = (uuidToBotUndelegateRequestMap[uuid]
+                .endTime != 0);
+        }
+
+        return userRequests;
     }
 
     ////////////////////////////////////////////////////////////
