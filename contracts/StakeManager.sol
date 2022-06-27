@@ -206,7 +206,7 @@ contract StakeManager is
         totalBnbToWithdraw += amountInBnb;
         totalBnbXToBurn += _amount;
         userWithdrawalRequests[msg.sender].push(
-            WithdrawalRequest(undelegateUUID, amountInBnb)
+            WithdrawalRequest(undelegateUUID, amountInBnb, block.timestamp)
         );
 
         emit RequestWithdraw(msg.sender, _amount, amountInBnb);
@@ -232,6 +232,28 @@ contract StakeManager is
         AddressUpgradeable.sendValue(payable(user), amount);
 
         emit ClaimWithdrawal(user, _idx, amount);
+    }
+
+    /**
+     * @dev Checks if the withdrawRequest is ready to claim
+     * @param _user - Address of the user who raised WithdrawRequest
+     * @param _idx - index of request in UserWithdrawls Array
+     * @notice Use `getUserWithdrawalRequests` to get the userWithdrawlRequests Array
+     */
+    function isClaimable(address _user, uint256 _idx)
+        external
+        view
+        override
+        returns (bool _isClaimable)
+    {
+        WithdrawalRequest[] storage userRequests = userWithdrawalRequests[
+            _user
+        ];
+        require(_idx < userRequests.length, "Invalid index");
+        WithdrawalRequest memory withdrawRequest = userRequests[_idx];
+
+        uint256 uuid = withdrawRequest.uuid;
+        _isClaimable = (uuidToBotUndelegateRequestMap[uuid].endTime != 0);
     }
 
     /**

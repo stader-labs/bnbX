@@ -17,6 +17,7 @@ interface IStakeManager {
     struct WithdrawalRequest {
         uint256 uuid;
         uint256 amount;
+        uint256 startTime;
     }
 
     function initialize(
@@ -41,6 +42,11 @@ interface IStakeManager {
     function requestWithdraw(uint256 _amount) external;
 
     function claimWithdraw(uint256 _idx) external;
+
+    function isClaimable(address _user, uint256 _idx)
+        external
+        view
+        returns (bool _isClaimable);
 
     function startUndelegation()
         external
