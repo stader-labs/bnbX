@@ -203,12 +203,7 @@ contract StakeManager is
         totalBnbToWithdraw += amountInBnb;
         totalBnbXToBurn += _amount;
         userWithdrawalRequests[msg.sender].push(
-            WithdrawalRequest(
-                undelegateUUID,
-                amountInBnb,
-                block.timestamp,
-                false
-            )
+            WithdrawalRequest(undelegateUUID, amountInBnb, block.timestamp)
         );
 
         emit RequestWithdraw(msg.sender, _amount, amountInBnb);
@@ -390,20 +385,7 @@ contract StakeManager is
         override
         returns (WithdrawalRequest[] memory)
     {
-        WithdrawalRequest[] memory userRequests = userWithdrawalRequests[
-            _address
-        ];
-
-        for (uint256 idx = 0; idx < userRequests.length; idx++) {
-            WithdrawalRequest memory withdrawRequest = userRequests[idx];
-            if (withdrawRequest.isClaimable) continue;
-
-            uint256 uuid = withdrawRequest.uuid;
-            withdrawRequest.isClaimable = (uuidToBotUndelegateRequestMap[uuid]
-                .endTime != 0);
-        }
-
-        return userRequests;
+        return userWithdrawalRequests[_address];
     }
 
     ////////////////////////////////////////////////////////////
