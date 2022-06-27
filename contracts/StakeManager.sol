@@ -198,7 +198,10 @@ contract StakeManager is
             _amount
         );
         uint256 totalStakedBnb = getTotalStakedBnb();
-        require(amountInBnb <= totalStakedBnb, "Not enough BNB to withdraw");
+        require(
+            amountInBnb <= (totalStakedBnb - totalBnbToWithdraw),
+            "Not enough BNB to withdraw"
+        );
 
         totalBnbToWithdraw += amountInBnb;
         totalBnbXToBurn += _amount;
