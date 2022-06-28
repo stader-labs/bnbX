@@ -21,4 +21,3 @@ jobs:
 
 # sam deploy
       - run: sam deploy --no-confirm-changeset --no-fail-on-empty-changeset --stack-name sam-hello-world --s3-bucket ##s3-bucket## --capabilities CAPABILITY_IAM --region ##region## 
-YAML
