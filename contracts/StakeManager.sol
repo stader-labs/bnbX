@@ -381,22 +381,22 @@ contract StakeManager is
         return ITokenHub(tokenHub).relayFee();
     }
 
-    function getBotDelegateRequest(uint256 uuid)
+    function getBotDelegateRequest(uint256 _uuid)
         external
         view
         override
         returns (BotDelegateRequest memory)
     {
-        return uuidToBotDelegateRequestMap[uuid];
+        return uuidToBotDelegateRequestMap[_uuid];
     }
 
-    function getBotUndelegateRequest(uint256 uuid)
+    function getBotUndelegateRequest(uint256 _uuid)
         external
         view
         override
         returns (BotUndelegateRequest memory)
     {
-        return uuidToBotUndelegateRequestMap[uuid];
+        return uuidToBotUndelegateRequestMap[_uuid];
     }
 
     /**
