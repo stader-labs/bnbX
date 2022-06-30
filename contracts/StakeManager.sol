@@ -110,35 +110,33 @@ contract StakeManager is
     {
         uint256 tokenHubRelayFee = getTokenHubRelayFee();
         uint256 relayFeeReceived = msg.value;
-        uint256 amount = totalUnstaked - (totalUnstaked % TEN_DECIMALS);
+        _amount = totalUnstaked - (totalUnstaked % TEN_DECIMALS);
 
         require(
             relayFeeReceived >= tokenHubRelayFee,
             "Require More Relay Fee, Check getTokenHubRelayFee"
         );
-        require(amount > 0, "No more funds to stake");
+        require(_amount > 0, "No more funds to stake");
 
-        uuidToBotDelegateRequestMap[delegateUUID++] = BotDelegateRequest(
+        _uuid = delegateUUID++;
+        uuidToBotDelegateRequestMap[_uuid] = BotDelegateRequest(
             block.timestamp,
             0,
-            amount
+            _amount
         );
-        totalOutBuffer += amount;
-        totalUnstaked -= amount;
+        totalOutBuffer += _amount;
+        totalUnstaked -= _amount;
 
         // sends funds to BC
         uint64 expireTime = uint64(block.timestamp + 2 minutes);
-        ITokenHub(tokenHub).transferOut{value: (amount + relayFeeReceived)}(
+        ITokenHub(tokenHub).transferOut{value: (_amount + relayFeeReceived)}(
             address(0),
             bcDepositWallet,
-            amount,
+            _amount,
             expireTime
         );
 
-        emit TransferOut(amount);
-
-        _uuid = delegateUUID - 1;
-        _amount = amount;
+        emit TransferOut(_amount);
     }
 
     /**
