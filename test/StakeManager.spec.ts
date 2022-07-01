@@ -474,4 +474,15 @@ describe("Stake Manager Contract", () => {
       expect(userRequests.length).to.be.eq(0);
     });
   });
+
+  describe("Miscellaneous", () => {
+    it("post-increment", async () => {
+      let value = 1;
+      const currentValue = value++;
+      const incrementedValue = value;
+
+      expect(currentValue).to.be.eq(1);
+      expect(incrementedValue).to.be.eq(2);
+    });
+  });
 });

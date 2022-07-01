@@ -41,8 +41,8 @@ contract StakeManager is
         private uuidToBotUndelegateRequestMap;
     mapping(address => WithdrawalRequest[]) private userWithdrawalRequests;
 
-    uint256 private delegateUUID;
-    uint256 private undelegateUUID;
+    uint256 private nextDelegateUUID;
+    uint256 private nextUndelegateUUID;
 
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
@@ -118,7 +118,7 @@ contract StakeManager is
         );
         require(_amount > 0, "No more funds to stake");
 
-        _uuid = delegateUUID++;
+        _uuid = nextDelegateUUID++; // post-increment : assigns the current value first and then increments
         uuidToBotDelegateRequestMap[_uuid] = BotDelegateRequest(
             block.timestamp,
             0,
@@ -204,7 +204,7 @@ contract StakeManager is
         totalBnbToWithdraw += amountInBnb;
         totalBnbXToBurn += _amount;
         userWithdrawalRequests[msg.sender].push(
-            WithdrawalRequest(undelegateUUID, amountInBnb, block.timestamp)
+            WithdrawalRequest(nextUndelegateUUID, amountInBnb, block.timestamp)
         );
 
         emit RequestWithdraw(msg.sender, _amount, amountInBnb);
@@ -269,7 +269,7 @@ contract StakeManager is
     {
         require(totalBnbToWithdraw > 0, "No Request to withdraw");
 
-        _uuid = undelegateUUID++;
+        _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
         _amount = totalBnbToWithdraw;
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest(
             block.timestamp,
