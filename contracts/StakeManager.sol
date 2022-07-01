@@ -27,7 +27,7 @@ contract StakeManager is
     uint256 public totalDeposited;
     uint256 public totalUnstaked;
     uint256 public totalOutBuffer;
-    uint256 public totalRedelegated;
+    uint256 public totalDelegatedRewards;
     uint256 public totalBnbToWithdraw;
     uint256 public totalBnbXToBurn;
 
@@ -163,14 +163,14 @@ contract StakeManager is
         emit Delegate(_uuid, amount);
     }
 
-    function increaseTotalRedelegated(uint256 _amount)
+    function increaseTotalDelegatedRewards(uint256 _amount)
         external
         override
         whenNotPaused
         onlyRole(BOT)
     {
         require(_amount > 0, "No fund");
-        totalRedelegated += _amount;
+        totalDelegatedRewards += _amount;
 
         emit Redelegate(_amount);
     }
@@ -342,7 +342,7 @@ contract StakeManager is
     ////////////////////////////////////////////////////////////
 
     function getTotalPooledBnb() public view override returns (uint256) {
-        return (totalDeposited + totalRedelegated);
+        return (totalDeposited + totalDelegatedRewards);
     }
 
     /**
@@ -350,7 +350,7 @@ contract StakeManager is
      */
     function getTotalStakedBnb() public view override returns (uint256) {
         return (totalDeposited +
-            totalRedelegated -
+            totalDelegatedRewards -
             totalUnstaked -
             totalOutBuffer);
     }
