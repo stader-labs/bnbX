@@ -307,8 +307,8 @@ contract StakeManager is
 
         uint256 amount = msg.value;
         require(
-            amount == uuidToBotUndelegateRequestMap[_uuid].amount,
-            "Incorrect Amount of Fund"
+            amount >= uuidToBotUndelegateRequestMap[_uuid].amount,
+            "Insufficient Fund"
         );
         uuidToBotUndelegateRequestMap[_uuid].endTime = block.timestamp;
 

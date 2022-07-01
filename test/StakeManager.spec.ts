@@ -365,12 +365,14 @@ describe("Stake Manager Contract", () => {
       await bStakeManager.startUndelegation();
 
       await expect(bStakeManager.completeUndelegation(0)).to.be.revertedWith(
-        "Incorrect Amount of Fund"
+        "Insufficient Fund"
       );
 
       await expect(
-        bStakeManager.completeUndelegation(0, { value: amount })
-      ).to.be.revertedWith("Incorrect Amount of Fund");
+        bStakeManager.completeUndelegation(0, {
+          value: withdrawAmount.sub(500),
+        })
+      ).to.be.revertedWith("Insufficient Fund");
     });
 
     it("Should successfully complete Undelegation", async () => {
