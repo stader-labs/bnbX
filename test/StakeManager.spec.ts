@@ -90,7 +90,7 @@ describe("Stake Manager Contract", () => {
     // normal user deposits bnb
     expect(await bnbX.balanceOf(user.address)).to.be.eq(zeroBalance);
     await uStakeManager.deposit({ value: amount });
-    expect(await uStakeManager.totalUnstaked()).to.be.eq(amount.add(amount));
+    expect(await uStakeManager.totalNotStaked()).to.be.eq(amount.add(amount));
     // user bnbX balance should increase
     expect(await bnbX.balanceOf(user.address)).to.be.eq(amount);
   });
@@ -119,17 +119,17 @@ describe("Stake Manager Contract", () => {
       ).to.be.revertedWith("No more funds to stake");
     });
 
-    it("Fails when totalUnStaked funds is less than 1e10", async () => {
+    it("Fails when totalNotStaked funds is less than 1e10", async () => {
       const amount = BigNumber.from("300");
       const zeroBalance = BigNumber.from("0");
 
-      expect(await stakeManager.totalUnstaked()).to.be.eq(zeroBalance);
+      expect(await stakeManager.totalNotStaked()).to.be.eq(zeroBalance);
       await expect(
         bStakeManager.startDelegation({ value: relayFee })
       ).to.be.revertedWith("No more funds to stake");
 
       await uStakeManager.deposit({ value: amount });
-      expect(await stakeManager.totalUnstaked()).to.be.eq(amount);
+      expect(await stakeManager.totalNotStaked()).to.be.eq(amount);
 
       await expect(
         bStakeManager.startDelegation({ value: relayFee })
@@ -141,13 +141,13 @@ describe("Stake Manager Contract", () => {
       let amount = ethers.utils.parseEther("0.1");
       amount = amount.add(smallAmount);
       await uStakeManager.deposit({ value: amount });
-      expect(await stakeManager.totalUnstaked()).to.be.eq(amount);
+      expect(await stakeManager.totalNotStaked()).to.be.eq(amount);
 
       expect(await bStakeManager.startDelegation({ value: relayFee }))
         .emit(stakeManager, "TransferOut")
         .withArgs(amount.sub(smallAmount));
       expect(await stakeManager.totalDeposited()).to.be.eq(amount);
-      expect(await stakeManager.totalUnstaked()).to.be.eq(smallAmount);
+      expect(await stakeManager.totalNotStaked()).to.be.eq(smallAmount);
       expect(await stakeManager.totalOutBuffer()).to.be.eq(
         amount.sub(smallAmount)
       );
@@ -365,12 +365,14 @@ describe("Stake Manager Contract", () => {
       await bStakeManager.startUndelegation();
 
       await expect(bStakeManager.completeUndelegation(0)).to.be.revertedWith(
-        "Incorrect Amount of Fund"
+        "Insufficient Fund"
       );
 
       await expect(
-        bStakeManager.completeUndelegation(0, { value: amount })
-      ).to.be.revertedWith("Incorrect Amount of Fund");
+        bStakeManager.completeUndelegation(0, {
+          value: withdrawAmount.sub(500),
+        })
+      ).to.be.revertedWith("Insufficient Fund");
     });
 
     it("Should successfully complete Undelegation", async () => {
@@ -472,6 +474,17 @@ describe("Stake Manager Contract", () => {
         user.address
       );
       expect(userRequests.length).to.be.eq(0);
+    });
+  });
+
+  describe("Miscellaneous", () => {
+    it("post-increment", async () => {
+      let value = 1;
+      const currentValue = value++;
+      const incrementedValue = value;
+
+      expect(currentValue).to.be.eq(1);
+      expect(incrementedValue).to.be.eq(2);
     });
   });
 });

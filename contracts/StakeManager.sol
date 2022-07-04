@@ -24,10 +24,10 @@ contract StakeManager is
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    uint256 public totalDeposited;
-    uint256 public totalUnstaked;
-    uint256 public totalOutBuffer;
-    uint256 public totalRedelegated;
+    uint256 public totalDeposited; // total BNB deposited in contract
+    uint256 public totalNotStaked; // total BNB deposited but yet not staked on Beacon Chain
+    uint256 public totalOutBuffer; // total BNB in relayer while transfering BSC -> BC
+    uint256 public totalDelegatedRewards; // total BNB rewards which are already delegated / staked
     uint256 public totalBnbToWithdraw;
     uint256 public totalBnbXToBurn;
 
@@ -41,8 +41,8 @@ contract StakeManager is
         private uuidToBotUndelegateRequestMap;
     mapping(address => WithdrawalRequest[]) private userWithdrawalRequests;
 
-    uint256 private delegateUUID;
-    uint256 private undelegateUUID;
+    uint256 private nextDelegateUUID;
+    uint256 private nextUndelegateUUID;
 
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
@@ -89,7 +89,7 @@ contract StakeManager is
         uint256 amountToMint = convertBnbToBnbX(amount);
 
         totalDeposited += amount;
-        totalUnstaked += amount;
+        totalNotStaked += amount;
 
         IBnbX(bnbX).mint(msg.sender, amountToMint);
     }
@@ -110,35 +110,33 @@ contract StakeManager is
     {
         uint256 tokenHubRelayFee = getTokenHubRelayFee();
         uint256 relayFeeReceived = msg.value;
-        uint256 amount = totalUnstaked - (totalUnstaked % TEN_DECIMALS);
+        _amount = totalNotStaked - (totalNotStaked % TEN_DECIMALS);
 
         require(
             relayFeeReceived >= tokenHubRelayFee,
             "Require More Relay Fee, Check getTokenHubRelayFee"
         );
-        require(amount > 0, "No more funds to stake");
+        require(_amount > 0, "No more funds to stake");
 
-        uuidToBotDelegateRequestMap[delegateUUID++] = BotDelegateRequest(
+        _uuid = nextDelegateUUID++; // post-increment : assigns the current value first and then increments
+        uuidToBotDelegateRequestMap[_uuid] = BotDelegateRequest(
             block.timestamp,
             0,
-            amount
+            _amount
         );
-        totalOutBuffer += amount;
-        totalUnstaked -= amount;
+        totalOutBuffer += _amount;
+        totalNotStaked -= _amount;
 
         // sends funds to BC
         uint64 expireTime = uint64(block.timestamp + 2 minutes);
-        ITokenHub(tokenHub).transferOut{value: (amount + relayFeeReceived)}(
+        ITokenHub(tokenHub).transferOut{value: (_amount + relayFeeReceived)}(
             address(0),
             bcDepositWallet,
-            amount,
+            _amount,
             expireTime
         );
 
-        emit TransferOut(amount);
-
-        _uuid = delegateUUID - 1;
-        _amount = amount;
+        emit TransferOut(_amount);
     }
 
     /**
@@ -165,14 +163,14 @@ contract StakeManager is
         emit Delegate(_uuid, amount);
     }
 
-    function increaseTotalRedelegated(uint256 _amount)
+    function increaseTotalDelegatedRewards(uint256 _amount)
         external
         override
         whenNotPaused
         onlyRole(BOT)
     {
         require(_amount > 0, "No fund");
-        totalRedelegated += _amount;
+        totalDelegatedRewards += _amount;
 
         emit Redelegate(_amount);
     }
@@ -206,7 +204,7 @@ contract StakeManager is
         totalBnbToWithdraw += amountInBnb;
         totalBnbXToBurn += _amount;
         userWithdrawalRequests[msg.sender].push(
-            WithdrawalRequest(undelegateUUID, amountInBnb, block.timestamp)
+            WithdrawalRequest(nextUndelegateUUID, amountInBnb, block.timestamp)
         );
 
         emit RequestWithdraw(msg.sender, _amount, amountInBnb);
@@ -271,7 +269,7 @@ contract StakeManager is
     {
         require(totalBnbToWithdraw > 0, "No Request to withdraw");
 
-        _uuid = undelegateUUID++;
+        _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
         _amount = totalBnbToWithdraw;
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest(
             block.timestamp,
@@ -309,8 +307,8 @@ contract StakeManager is
 
         uint256 amount = msg.value;
         require(
-            amount == uuidToBotUndelegateRequestMap[_uuid].amount,
-            "Incorrect Amount of Fund"
+            amount >= uuidToBotUndelegateRequestMap[_uuid].amount,
+            "Insufficient Fund"
         );
         uuidToBotUndelegateRequestMap[_uuid].endTime = block.timestamp;
 
@@ -344,7 +342,7 @@ contract StakeManager is
     ////////////////////////////////////////////////////////////
 
     function getTotalPooledBnb() public view override returns (uint256) {
-        return (totalDeposited + totalRedelegated);
+        return (totalDeposited + totalDelegatedRewards);
     }
 
     /**
@@ -352,8 +350,8 @@ contract StakeManager is
      */
     function getTotalStakedBnb() public view override returns (uint256) {
         return (totalDeposited +
-            totalRedelegated -
-            totalUnstaked -
+            totalDelegatedRewards -
+            totalNotStaked -
             totalOutBuffer);
     }
 
