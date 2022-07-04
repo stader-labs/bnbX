@@ -12,11 +12,12 @@ interface IStakeManager {
         uint256 startTime;
         uint256 endTime;
         uint256 amount;
+        uint256 amountInBnbX;
     }
 
     struct WithdrawalRequest {
         uint256 uuid;
-        uint256 amount;
+        uint256 amountInBnbX;
         uint256 startTime;
     }
 
@@ -39,7 +40,7 @@ interface IStakeManager {
 
     function increaseTotalDelegatedRewards(uint256 _amount) external;
 
-    function requestWithdraw(uint256 _amount) external;
+    function requestWithdraw(uint256 _amountInBnbX) external;
 
     function claimWithdraw(uint256 _idx) external;
 
@@ -89,16 +90,15 @@ interface IStakeManager {
 
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
 
-    function convertBnbXToBnb(uint256 _amount) external view returns (uint256);
+    function convertBnbXToBnb(uint256 _amountInBnbX)
+        external
+        view
+        returns (uint256);
 
     event Delegate(uint256 _uuid, uint256 _amount);
     event TransferOut(uint256 _amount);
     event SetBotAddress(address indexed _address);
-    event RequestWithdraw(
-        address indexed _account,
-        uint256 _amountBnbX,
-        uint256 _amountBnb
-    );
+    event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
     event ClaimWithdrawal(
         address indexed _account,
         uint256 _idx,
