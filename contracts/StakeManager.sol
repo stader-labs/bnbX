@@ -28,7 +28,7 @@ contract StakeManager is
     uint256 public totalNotStaked; // total BNB deposited but yet not staked on Beacon Chain
     uint256 public totalOutBuffer; // total BNB in relayer while transfering BSC -> BC
     uint256 public totalDelegatedRewards; // total BNB rewards which are already delegated / staked
-    uint256 public totalBnbToWithdraw;
+    // uint256 public totalBnbToWithdraw;
     uint256 public totalBnbXToBurn;
 
     address private bnbX;
@@ -183,31 +183,39 @@ contract StakeManager is
 
     /**
      * @dev Allows user to request for unstake/withdraw funds
-     * @param _amount - Amount of BnbX to swap for withdraw
+     * @param _amountInBnbX - Amount of BnbX to swap for withdraw
      * @notice User must have approved this contract to spend BnbX
      */
-    function requestWithdraw(uint256 _amount) external override whenNotPaused {
-        require(_amount > 0, "Invalid Amount");
-        uint256 amountInBnb = convertBnbXToBnb(_amount);
+    function requestWithdraw(uint256 _amountInBnbX)
+        external
+        override
+        whenNotPaused
+    {
+        require(_amountInBnbX > 0, "Invalid Amount");
+        // uint256 amountInBnb = convertBnbXToBnb(_amount);
 
         IERC20Upgradeable(bnbX).safeTransferFrom(
             msg.sender,
             address(this),
-            _amount
+            _amountInBnbX
         );
-        uint256 totalStakedBnb = getTotalStakedBnb();
+        uint256 totalShares = IBnbX(bnbX).totalSupply();
         require(
-            amountInBnb <= (totalStakedBnb - totalBnbToWithdraw),
+            _amountInBnbX <= (totalShares - totalBnbXToBurn),
             "Not enough BNB to withdraw"
         );
 
-        totalBnbToWithdraw += amountInBnb;
-        totalBnbXToBurn += _amount;
+        // totalBnbToWithdraw += amountInBnb;
+        totalBnbXToBurn += _amountInBnbX;
         userWithdrawalRequests[msg.sender].push(
-            WithdrawalRequest(nextUndelegateUUID, amountInBnb, block.timestamp)
+            WithdrawalRequest(
+                nextUndelegateUUID,
+                _amountInBnbX,
+                block.timestamp
+            )
         );
 
-        emit RequestWithdraw(msg.sender, _amount, amountInBnb);
+        emit RequestWithdraw(msg.sender, _amountInBnbX);
     }
 
     function claimWithdraw(uint256 _idx) external override whenNotPaused {
@@ -216,17 +224,20 @@ contract StakeManager is
 
         require(_idx < userRequests.length, "Invalid index");
 
-        WithdrawalRequest memory withdrawRequest = userRequests[_idx];
+        WithdrawalRequest storage withdrawRequest = userRequests[_idx];
         uint256 uuid = withdrawRequest.uuid;
-        uint256 amount = withdrawRequest.amount;
+        uint256 amountInBnbX = withdrawRequest.amountInBnbX;
 
-        require(
-            uuidToBotUndelegateRequestMap[uuid].endTime != 0,
-            "Not able to claim yet"
-        );
-
+        BotUndelegateRequest
+            storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
+        require(botUndelegateRequest.endTime != 0, "Not able to claim yet");
         userRequests[_idx] = userRequests[userRequests.length - 1];
         userRequests.pop();
+
+        uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
+        uint256 totalBnbXToBurn_ = botUndelegateRequest.amountInBnbX;
+        uint256 amount = (totalBnbToWithdraw_ * amountInBnbX) /
+            totalBnbXToBurn_;
         AddressUpgradeable.sendValue(payable(user), amount);
 
         emit ClaimWithdrawal(user, _idx, amount);
@@ -248,7 +259,7 @@ contract StakeManager is
             _user
         ];
         require(_idx < userRequests.length, "Invalid index");
-        WithdrawalRequest memory withdrawRequest = userRequests[_idx];
+        WithdrawalRequest storage withdrawRequest = userRequests[_idx];
 
         uint256 uuid = withdrawRequest.uuid;
         _isClaimable = (uuidToBotUndelegateRequestMap[uuid].endTime != 0);
@@ -267,22 +278,23 @@ contract StakeManager is
         onlyRole(BOT)
         returns (uint256 _uuid, uint256 _amount)
     {
-        require(totalBnbToWithdraw > 0, "No Request to withdraw");
+        require(totalBnbXToBurn > 0, "No Request to withdraw");
 
         _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
-        _amount = totalBnbToWithdraw;
+        uint256 totalBnbXToBurn_ = totalBnbXToBurn; // To avoid Reentrancy attack
+        _amount = convertBnbXToBnb(totalBnbXToBurn_);
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest(
             block.timestamp,
             0,
-            _amount
+            _amount,
+            totalBnbXToBurn_
         );
 
         totalDeposited -= _amount;
-        uint256 bnbXToBurn = totalBnbXToBurn; // To avoid Reentrancy attack
         totalBnbXToBurn = 0;
-        totalBnbToWithdraw = 0;
+        // totalBnbToWithdraw = 0;
 
-        IBnbX(bnbX).burn(address(this), bnbXToBurn);
+        IBnbX(bnbX).burn(address(this), totalBnbXToBurn_);
     }
 
     /**
@@ -290,7 +302,7 @@ contract StakeManager is
      * communicate regarding completion of Undelegation Event
      * @param _uuid - unique id against which this Undelegation event was logged
      * @notice Use `getBotUndelegateRequest` function to get more details of the logged data
-     * @notice send exact amount of fund as requested
+     * @notice send at least the required fund
      */
     function completeUndelegation(uint256 _uuid)
         external
@@ -299,18 +311,17 @@ contract StakeManager is
         whenNotPaused
         onlyRole(BOT)
     {
+        BotUndelegateRequest
+            storage botUndelegateRequest = uuidToBotUndelegateRequestMap[_uuid];
         require(
-            (uuidToBotUndelegateRequestMap[_uuid].amount > 0) &&
-                (uuidToBotUndelegateRequestMap[_uuid].endTime == 0),
+            (botUndelegateRequest.amount > 0) &&
+                (botUndelegateRequest.endTime == 0),
             "Invalid UUID"
         );
 
         uint256 amount = msg.value;
-        require(
-            amount >= uuidToBotUndelegateRequestMap[_uuid].amount,
-            "Insufficient Fund"
-        );
-        uuidToBotUndelegateRequestMap[_uuid].endTime = block.timestamp;
+        require(amount >= botUndelegateRequest.amount, "Insufficient Fund");
+        botUndelegateRequest.endTime = block.timestamp;
 
         emit Undelegate(_uuid, amount);
     }
@@ -438,9 +449,9 @@ contract StakeManager is
     }
 
     /**
-     * @dev Calculates amount of Bnb for `_amount` BnbX
+     * @dev Calculates amount of Bnb for `_amountInBnbX` BnbX
      */
-    function convertBnbXToBnb(uint256 _amount)
+    function convertBnbXToBnb(uint256 _amountInBnbX)
         public
         view
         override
@@ -452,7 +463,7 @@ contract StakeManager is
         uint256 totalPooledBnb = getTotalPooledBnb();
         totalPooledBnb = totalPooledBnb == 0 ? 1 : totalPooledBnb;
 
-        uint256 amountInBnb = (_amount * totalPooledBnb) / totalShares;
+        uint256 amountInBnb = (_amountInBnbX * totalPooledBnb) / totalShares;
 
         return amountInBnb;
     }
