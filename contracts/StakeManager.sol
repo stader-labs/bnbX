@@ -191,7 +191,6 @@ contract StakeManager is
         whenNotPaused
     {
         require(_amountInBnbX > 0, "Invalid Amount");
-        // uint256 amountInBnb = convertBnbXToBnb(_amount);
 
         IERC20Upgradeable(bnbX).safeTransferFrom(
             msg.sender,
