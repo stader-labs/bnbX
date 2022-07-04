@@ -28,7 +28,6 @@ contract StakeManager is
     uint256 public totalNotStaked; // total BNB deposited but yet not staked on Beacon Chain
     uint256 public totalOutBuffer; // total BNB in relayer while transfering BSC -> BC
     uint256 public totalDelegatedRewards; // total BNB rewards which are already delegated / staked
-    // uint256 public totalBnbToWithdraw;
     uint256 public totalBnbXToBurn;
 
     address private bnbX;
@@ -205,7 +204,6 @@ contract StakeManager is
             "Not enough BNB to withdraw"
         );
 
-        // totalBnbToWithdraw += amountInBnb;
         totalBnbXToBurn += _amountInBnbX;
         userWithdrawalRequests[msg.sender].push(
             WithdrawalRequest(
@@ -292,7 +290,6 @@ contract StakeManager is
 
         totalDeposited -= _amount;
         totalBnbXToBurn = 0;
-        // totalBnbToWithdraw = 0;
 
         IBnbX(bnbX).burn(address(this), totalBnbXToBurn_);
     }
