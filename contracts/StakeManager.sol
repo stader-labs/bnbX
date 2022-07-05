@@ -42,6 +42,8 @@ contract StakeManager is
 
     uint256 private nextDelegateUUID;
     uint256 private nextUndelegateUUID;
+    bool private isDelegationPending; // initial default value false
+    bool private isUndelegationPending; // initial default value false
 
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
@@ -107,6 +109,8 @@ contract StakeManager is
         onlyRole(BOT)
         returns (uint256 _uuid, uint256 _amount)
     {
+        require(!isDelegationPending, "Previous Delegation Pending");
+
         uint256 tokenHubRelayFee = getTokenHubRelayFee();
         uint256 relayFeeReceived = msg.value;
         _amount = totalNotStaked - (totalNotStaked % TEN_DECIMALS);
@@ -135,6 +139,7 @@ contract StakeManager is
             expireTime
         );
 
+        isDelegationPending = true;
         emit TransferOut(_amount);
     }
 
@@ -159,6 +164,7 @@ contract StakeManager is
         uint256 amount = uuidToBotDelegateRequestMap[_uuid].amount;
         totalOutBuffer -= amount;
 
+        isDelegationPending = false;
         emit Delegate(_uuid, amount);
     }
 
@@ -275,6 +281,7 @@ contract StakeManager is
         onlyRole(BOT)
         returns (uint256 _uuid, uint256 _amount)
     {
+        require(!isUndelegationPending, "Previous Undelegation Pending");
         require(totalBnbXToBurn > 0, "No Request to withdraw");
 
         _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
@@ -290,6 +297,7 @@ contract StakeManager is
         totalDeposited -= _amount;
         totalBnbXToBurn = 0;
 
+        isUndelegationPending = true;
         IBnbX(bnbX).burn(address(this), totalBnbXToBurn_);
     }
 
@@ -319,6 +327,7 @@ contract StakeManager is
         require(amount >= botUndelegateRequest.amount, "Insufficient Fund");
         botUndelegateRequest.endTime = block.timestamp;
 
+        isUndelegationPending = false;
         emit Undelegate(_uuid, amount);
     }
 
