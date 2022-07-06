@@ -44,11 +44,6 @@ interface IStakeManager {
 
     function claimWithdraw(uint256 _idx) external;
 
-    function isClaimable(address _user, uint256 _idx)
-        external
-        view
-        returns (bool _isClaimable);
-
     function startUndelegation()
         external
         returns (uint256 _uuid, uint256 _amount);
@@ -89,6 +84,11 @@ interface IStakeManager {
         external
         view
         returns (WithdrawalRequest[] memory);
+
+    function getUserRequestStatus(address _user, uint256 _idx)
+        external
+        view
+        returns (bool _isClaimable, uint256 _amount);
 
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
 
