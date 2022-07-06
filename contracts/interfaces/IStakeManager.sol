@@ -57,6 +57,8 @@ interface IStakeManager {
 
     function setBotAddress(address _bot) external;
 
+    function setMinDelegateThreshold(uint256 _minDelegateThreshold) external;
+
     function getTotalPooledBnb() external view returns (uint256);
 
     function getTotalStakedBnb() external view returns (uint256);

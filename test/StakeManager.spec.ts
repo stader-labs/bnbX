@@ -116,7 +116,7 @@ describe("Stake Manager Contract", () => {
 
       await expect(
         bStakeManager.startDelegation({ value: relayFee })
-      ).to.be.revertedWith("No more funds to stake");
+      ).to.be.revertedWith("Insufficient Deposit Amount");
     });
 
     it("Fails when totalNotStaked funds is less than 1e10", async () => {
@@ -126,14 +126,14 @@ describe("Stake Manager Contract", () => {
       expect(await stakeManager.totalNotStaked()).to.be.eq(zeroBalance);
       await expect(
         bStakeManager.startDelegation({ value: relayFee })
-      ).to.be.revertedWith("No more funds to stake");
+      ).to.be.revertedWith("Insufficient Deposit Amount");
 
       await uStakeManager.deposit({ value: amount });
       expect(await stakeManager.totalNotStaked()).to.be.eq(amount);
 
       await expect(
         bStakeManager.startDelegation({ value: relayFee })
-      ).to.be.revertedWith("No more funds to stake");
+      ).to.be.revertedWith("Insufficient Deposit Amount");
     });
 
     it("Should transfer amount in multiples of 1e10", async () => {
@@ -286,7 +286,7 @@ describe("Stake Manager Contract", () => {
 
     it("Fails when no withdraw requests", async () => {
       await expect(bStakeManager.startUndelegation()).to.be.revertedWith(
-        "No Request to withdraw"
+        "Insufficient Withdraw Amount"
       );
     });
 
