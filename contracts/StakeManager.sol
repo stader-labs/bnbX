@@ -249,28 +249,6 @@ contract StakeManager is
     }
 
     /**
-     * @dev Checks if the withdrawRequest is ready to claim
-     * @param _user - Address of the user who raised WithdrawRequest
-     * @param _idx - index of request in UserWithdrawls Array
-     * @notice Use `getUserWithdrawalRequests` to get the userWithdrawlRequests Array
-     */
-    function isClaimable(address _user, uint256 _idx)
-        external
-        view
-        override
-        returns (bool _isClaimable)
-    {
-        WithdrawalRequest[] storage userRequests = userWithdrawalRequests[
-            _user
-        ];
-        require(_idx < userRequests.length, "Invalid index");
-        WithdrawalRequest storage withdrawRequest = userRequests[_idx];
-
-        uint256 uuid = withdrawRequest.uuid;
-        _isClaimable = (uuidToBotUndelegateRequestMap[uuid].endTime != 0);
-    }
-
-    /**
      * @dev Bot uses this function to communicate regarding start of Undelegation Event
      * @return _uuid - unique id against which this Undelegation event was logged
      * @return _amount - Amount of funds required to Unstake
@@ -437,6 +415,46 @@ contract StakeManager is
         returns (WithdrawalRequest[] memory)
     {
         return userWithdrawalRequests[_address];
+    }
+
+    /**
+     * @dev Checks if the withdrawRequest is ready to claim
+     * @param _user - Address of the user who raised WithdrawRequest
+     * @param _idx - index of request in UserWithdrawls Array
+     * @return _isClaimable - if the withdraw is ready to claim yet
+     * @return _amount - Amount of BNB user would receive on withdraw claim
+     * @notice Use `getUserWithdrawalRequests` to get the userWithdrawlRequests Array
+     */
+    function getUserRequestStatus(address _user, uint256 _idx)
+        external
+        view
+        override
+        returns (bool _isClaimable, uint256 _amount)
+    {
+        WithdrawalRequest[] storage userRequests = userWithdrawalRequests[
+            _user
+        ];
+
+        require(_idx < userRequests.length, "Invalid index");
+
+        WithdrawalRequest storage withdrawRequest = userRequests[_idx];
+        uint256 uuid = withdrawRequest.uuid;
+        uint256 amountInBnbX = withdrawRequest.amountInBnbX;
+
+        BotUndelegateRequest
+            storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
+
+        // bot has triggered startUndelegation
+        if (botUndelegateRequest.amount > 0) {
+            uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
+            uint256 totalBnbXToBurn_ = botUndelegateRequest.amountInBnbX;
+            _amount = (totalBnbToWithdraw_ * amountInBnbX) / totalBnbXToBurn_;
+        }
+        // bot has not triggered startUndelegation yet
+        else {
+            _amount = convertBnbXToBnb(amountInBnbX);
+        }
+        _isClaimable = (botUndelegateRequest.endTime != 0);
     }
 
     ////////////////////////////////////////////////////////////
