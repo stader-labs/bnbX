@@ -45,6 +45,7 @@ contract StakeManager is
     bool private isDelegationPending; // initial default value false
     bool private isUndelegationPending; // initial default value false
 
+    uint256 public minDelegateThreshold;
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
 
@@ -72,6 +73,7 @@ contract StakeManager is
         tokenHub = _tokenHub;
         bcDepositWallet = _bcDepositWallet;
         bot = _bot;
+        minDelegateThreshold = 1e18;
     }
 
     ////////////////////////////////////////////////////////////
@@ -119,7 +121,7 @@ contract StakeManager is
             relayFeeReceived >= tokenHubRelayFee,
             "Require More Relay Fee, Check getTokenHubRelayFee"
         );
-        require(_amount > 0, "No more funds to stake");
+        require(_amount >= minDelegateThreshold, "Insufficient Deposit Amount");
 
         _uuid = nextDelegateUUID++; // post-increment : assigns the current value first and then increments
         uuidToBotDelegateRequestMap[_uuid] = BotDelegateRequest(
@@ -282,11 +284,12 @@ contract StakeManager is
         returns (uint256 _uuid, uint256 _amount)
     {
         require(!isUndelegationPending, "Previous Undelegation Pending");
-        require(totalBnbXToBurn > 0, "No Request to withdraw");
 
         _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
         uint256 totalBnbXToBurn_ = totalBnbXToBurn; // To avoid Reentrancy attack
         _amount = convertBnbXToBnb(totalBnbXToBurn_);
+        require(_amount > 0, "Insufficient Withdraw Amount");
+
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest(
             block.timestamp,
             0,
@@ -349,6 +352,15 @@ contract StakeManager is
         _setupRole(BOT, _address);
 
         emit SetBotAddress(_address);
+    }
+
+    function setMinDelegateThreshold(uint256 _minDelegateThreshold)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(_minDelegateThreshold > 0, "Invalid Threshold");
+        minDelegateThreshold = _minDelegateThreshold;
     }
 
     ////////////////////////////////////////////////////////////
