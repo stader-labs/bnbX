@@ -38,7 +38,7 @@ interface IStakeManager {
 
     function completeDelegation(uint256 _uuid) external;
 
-    function increaseTotalDelegatedRewards(uint256 _amount) external;
+    function addRestakingRewards(uint256 _amount) external;
 
     function requestWithdraw(uint256 _amountInBnbX) external;
 
@@ -55,8 +55,6 @@ interface IStakeManager {
     function setMinDelegateThreshold(uint256 _minDelegateThreshold) external;
 
     function getTotalPooledBnb() external view returns (uint256);
-
-    function getTotalStakedBnb() external view returns (uint256);
 
     function getContracts()
         external

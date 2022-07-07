@@ -24,10 +24,9 @@ contract StakeManager is
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    uint256 public totalDeposited; // total BNB deposited in contract
+    uint256 public depositsDelegated; // total BNB deposited in contract
     uint256 public depositsInContract; // total BNB deposited but yet not staked on Beacon Chain
     uint256 public depositsBridgingOut; // total BNB in relayer while transfering BSC -> BC
-    uint256 public totalDelegatedRewards; // total BNB rewards which are already delegated / staked
     uint256 public totalBnbXToBurn;
 
     address private bnbX;
@@ -89,12 +88,11 @@ contract StakeManager is
         uint256 amount = msg.value;
         require(amount > 0, "Invalid Amount");
 
-        uint256 amountToMint = convertBnbToBnbX(amount);
+        uint256 bnbXToMint = convertBnbToBnbX(amount);
 
-        totalDeposited += amount;
         depositsInContract += amount;
 
-        IBnbX(bnbX).mint(msg.sender, amountToMint);
+        IBnbX(bnbX).mint(msg.sender, bnbXToMint);
     }
 
     /**
@@ -165,19 +163,22 @@ contract StakeManager is
         uuidToBotDelegateRequestMap[_uuid].endTime = block.timestamp;
         uint256 amount = uuidToBotDelegateRequestMap[_uuid].amount;
         depositsBridgingOut -= amount;
+        depositsDelegated += amount;
 
         isDelegationPending = false;
         emit Delegate(_uuid, amount);
     }
 
-    function increaseTotalDelegatedRewards(uint256 _amount)
+    function addRestakingRewards(uint256 _amount)
         external
         override
         whenNotPaused
         onlyRole(BOT)
     {
         require(_amount > 0, "No fund");
-        totalDelegatedRewards += _amount;
+        require(depositsDelegated > 0, "No funds delegated");
+
+        depositsDelegated += _amount;
 
         emit Redelegate(_amount);
     }
@@ -200,15 +201,17 @@ contract StakeManager is
     {
         require(_amountInBnbX > 0, "Invalid Amount");
 
+        uint256 amount = convertBnbXToBnb(_amountInBnbX);
+        uint256 totalBnbToWithdraw = convertBnbXToBnb(totalBnbXToBurn);
+        require(
+            amount <= (depositsDelegated - totalBnbToWithdraw),
+            "Not enough BNB to withdraw"
+        );
+
         IERC20Upgradeable(bnbX).safeTransferFrom(
             msg.sender,
             address(this),
             _amountInBnbX
-        );
-        uint256 totalShares = IBnbX(bnbX).totalSupply();
-        require(
-            _amountInBnbX <= (totalShares - totalBnbXToBurn),
-            "Not enough BNB to withdraw"
         );
 
         totalBnbXToBurn += _amountInBnbX;
@@ -275,7 +278,7 @@ contract StakeManager is
             totalBnbXToBurn_
         );
 
-        totalDeposited -= _amount;
+        depositsDelegated -= _amount;
         totalBnbXToBurn = 0;
 
         isUndelegationPending = true;
@@ -348,17 +351,7 @@ contract StakeManager is
     ////////////////////////////////////////////////////////////
 
     function getTotalPooledBnb() public view override returns (uint256) {
-        return (totalDeposited + totalDelegatedRewards);
-    }
-
-    /**
-     * @dev Calculates total Bnb staked on Beacon chain
-     */
-    function getTotalStakedBnb() public view override returns (uint256) {
-        return (totalDeposited +
-            totalDelegatedRewards -
-            depositsInContract -
-            depositsBridgingOut);
+        return (depositsDelegated + depositsBridgingOut + depositsInContract);
     }
 
     function getContracts()

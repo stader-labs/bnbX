@@ -83,7 +83,7 @@ describe("Stake Manager Contract", () => {
     // deployer
     expect(await bnbX.balanceOf(deployer.address)).to.be.eq(zeroBalance);
     await stakeManager.deposit({ value: amount });
-    expect(await stakeManager.totalDeposited()).to.be.eq(amount);
+    expect(await stakeManager.depositsDelegated()).to.be.eq(amount);
     // deployer bnbX balance should increase
     expect(await bnbX.balanceOf(deployer.address)).to.be.eq(amount);
 
@@ -148,7 +148,7 @@ describe("Stake Manager Contract", () => {
       expect(await bStakeManager.startDelegation({ value: relayFee }))
         .emit(stakeManager, "TransferOut")
         .withArgs(amount.sub(smallAmount));
-      expect(await stakeManager.totalDeposited()).to.be.eq(amount);
+      expect(await stakeManager.depositsDelegated()).to.be.eq(amount);
       expect(await stakeManager.depositsInContract()).to.be.eq(smallAmount);
       expect(await stakeManager.depositsBridgingOut()).to.be.eq(
         amount.sub(smallAmount)
@@ -193,7 +193,7 @@ describe("Stake Manager Contract", () => {
       expect(await bStakeManager.completeDelegation(0))
         .emit(stakeManager, "Delegate")
         .withArgs(0, amount);
-      expect(await stakeManager.totalDeposited()).to.be.eq(amount);
+      expect(await stakeManager.depositsDelegated()).to.be.eq(amount);
       expect(await stakeManager.depositsBridgingOut()).to.be.eq(0);
 
       const botDelegateRequest = await bStakeManager.getBotDelegateRequest(0);
