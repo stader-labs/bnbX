@@ -25,7 +25,7 @@ contract StakeManager is
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     uint256 public totalDeposited; // total BNB deposited in contract
-    uint256 public totalNotStaked; // total BNB deposited but yet not staked on Beacon Chain
+    uint256 public depositsInContract; // total BNB deposited but yet not staked on Beacon Chain
     uint256 public totalOutBuffer; // total BNB in relayer while transfering BSC -> BC
     uint256 public totalDelegatedRewards; // total BNB rewards which are already delegated / staked
     uint256 public totalBnbXToBurn;
@@ -92,7 +92,7 @@ contract StakeManager is
         uint256 amountToMint = convertBnbToBnbX(amount);
 
         totalDeposited += amount;
-        totalNotStaked += amount;
+        depositsInContract += amount;
 
         IBnbX(bnbX).mint(msg.sender, amountToMint);
     }
@@ -115,7 +115,7 @@ contract StakeManager is
 
         uint256 tokenHubRelayFee = getTokenHubRelayFee();
         uint256 relayFeeReceived = msg.value;
-        _amount = totalNotStaked - (totalNotStaked % TEN_DECIMALS);
+        _amount = depositsInContract - (depositsInContract % TEN_DECIMALS);
 
         require(
             relayFeeReceived >= tokenHubRelayFee,
@@ -130,7 +130,7 @@ contract StakeManager is
             _amount
         );
         totalOutBuffer += _amount;
-        totalNotStaked -= _amount;
+        depositsInContract -= _amount;
 
         // sends funds to BC
         uint64 expireTime = uint64(block.timestamp + 2 minutes);
@@ -357,7 +357,7 @@ contract StakeManager is
     function getTotalStakedBnb() public view override returns (uint256) {
         return (totalDeposited +
             totalDelegatedRewards -
-            totalNotStaked -
+            depositsInContract -
             totalOutBuffer);
     }
 

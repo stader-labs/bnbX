@@ -90,7 +90,9 @@ describe("Stake Manager Contract", () => {
     // normal user deposits bnb
     expect(await bnbX.balanceOf(user.address)).to.be.eq(zeroBalance);
     await uStakeManager.deposit({ value: amount });
-    expect(await uStakeManager.totalNotStaked()).to.be.eq(amount.add(amount));
+    expect(await uStakeManager.depositsInContract()).to.be.eq(
+      amount.add(amount)
+    );
     // user bnbX balance should increase
     expect(await bnbX.balanceOf(user.address)).to.be.eq(amount);
   });
@@ -119,17 +121,17 @@ describe("Stake Manager Contract", () => {
       ).to.be.revertedWith("Insufficient Deposit Amount");
     });
 
-    it("Fails when totalNotStaked funds is less than 1e10", async () => {
+    it("Fails when depositsInContract funds is less than 1e10", async () => {
       const amount = BigNumber.from("300");
       const zeroBalance = BigNumber.from("0");
 
-      expect(await stakeManager.totalNotStaked()).to.be.eq(zeroBalance);
+      expect(await stakeManager.depositsInContract()).to.be.eq(zeroBalance);
       await expect(
         bStakeManager.startDelegation({ value: relayFee })
       ).to.be.revertedWith("Insufficient Deposit Amount");
 
       await uStakeManager.deposit({ value: amount });
-      expect(await stakeManager.totalNotStaked()).to.be.eq(amount);
+      expect(await stakeManager.depositsInContract()).to.be.eq(amount);
 
       await expect(
         bStakeManager.startDelegation({ value: relayFee })
@@ -141,13 +143,13 @@ describe("Stake Manager Contract", () => {
       let amount = ethers.utils.parseEther("0.1");
       amount = amount.add(smallAmount);
       await uStakeManager.deposit({ value: amount });
-      expect(await stakeManager.totalNotStaked()).to.be.eq(amount);
+      expect(await stakeManager.depositsInContract()).to.be.eq(amount);
 
       expect(await bStakeManager.startDelegation({ value: relayFee }))
         .emit(stakeManager, "TransferOut")
         .withArgs(amount.sub(smallAmount));
       expect(await stakeManager.totalDeposited()).to.be.eq(amount);
-      expect(await stakeManager.totalNotStaked()).to.be.eq(smallAmount);
+      expect(await stakeManager.depositsInContract()).to.be.eq(smallAmount);
       expect(await stakeManager.totalOutBuffer()).to.be.eq(
         amount.sub(smallAmount)
       );
