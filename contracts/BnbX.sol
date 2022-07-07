@@ -40,7 +40,7 @@ contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(stakeManager != _address, "Old address == new address");
-
+        require(_address != address(0), "zero address provided");
         _revokeRole(PREDICATE_ROLE, stakeManager);
         stakeManager = _address;
         _setupRole(PREDICATE_ROLE, _address);

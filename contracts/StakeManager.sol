@@ -24,8 +24,8 @@ contract StakeManager is
 {
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
-    uint256 public depositsDelegated; // total BNB deposited in contract
-    uint256 public depositsInContract; // total BNB deposited but yet not staked on Beacon Chain
+    uint256 public depositsDelegated; // total BNB delegated to validators on Beacon Chain
+    uint256 public depositsInContract; // total BNB deposited in contract but yet not staked on Beacon Chain
     uint256 public depositsBridgingOut; // total BNB in relayer while transfering BSC -> BC
     uint256 public totalBnbXToBurn;
 
@@ -67,6 +67,15 @@ contract StakeManager is
 
         _setupRole(DEFAULT_ADMIN_ROLE, _manager);
         _setupRole(BOT, _bot);
+
+        require(
+            ((_bnbX != address(0)) &&
+                (_manager != address(0)) &&
+                (_tokenHub != address(0)) &&
+                (_bcDepositWallet != address(0)) &&
+                (_bot != address(0))),
+            "zero address provided"
+        );
 
         bnbX = _bnbX;
         tokenHub = _tokenHub;
@@ -327,6 +336,7 @@ contract StakeManager is
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(bot != _address, "Old address == new address");
+        require(_address != address(0), "zero address provided");
 
         _revokeRole(BOT, bot);
         bot = _address;
