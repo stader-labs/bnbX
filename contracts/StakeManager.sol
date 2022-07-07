@@ -29,22 +29,23 @@ contract StakeManager is
     uint256 public depositsBridgingOut; // total BNB in relayer while transfering BSC -> BC
     uint256 public totalBnbXToBurn;
 
+    uint256 public nextDelegateUUID;
+    uint256 public nextUndelegateUUID;
+    uint256 public minDelegateThreshold;
+
     address private bnbX;
     address private bcDepositWallet;
     address private tokenHub;
     address private bot;
+
+    bool private isDelegationPending; // initial default value false
+    bool private isUndelegationPending; // initial default value false
 
     mapping(uint256 => BotDelegateRequest) private uuidToBotDelegateRequestMap;
     mapping(uint256 => BotUndelegateRequest)
         private uuidToBotUndelegateRequestMap;
     mapping(address => WithdrawalRequest[]) private userWithdrawalRequests;
 
-    uint256 private nextDelegateUUID;
-    uint256 private nextUndelegateUUID;
-    bool private isDelegationPending; // initial default value false
-    bool private isUndelegationPending; // initial default value false
-
-    uint256 public minDelegateThreshold;
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
 
