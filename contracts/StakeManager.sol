@@ -144,6 +144,8 @@ contract StakeManager is
         depositsBridgingOut += _amount;
         depositsInContract -= _amount;
 
+        isDelegationPending = true;
+
         // sends funds to BC
         uint64 expireTime = uint64(block.timestamp + 2 minutes);
         ITokenHub(tokenHub).transferOut{value: (_amount + relayFeeReceived)}(
@@ -153,7 +155,6 @@ contract StakeManager is
             expireTime
         );
 
-        isDelegationPending = true;
         emit TransferOut(_amount);
     }
 
