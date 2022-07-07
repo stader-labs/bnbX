@@ -48,6 +48,8 @@ interface IStakeManager {
         external
         returns (uint256 _uuid, uint256 _amount);
 
+    function undelegationStarted(uint256 _uuid) external;
+
     function completeUndelegation(uint256 _uuid) external payable;
 
     function setBotAddress(address _bot) external;

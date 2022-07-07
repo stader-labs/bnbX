@@ -266,7 +266,7 @@ contract StakeManager is
     }
 
     /**
-     * @dev Bot uses this function to communicate regarding start of Undelegation Event
+     * @dev Bot uses this function to get amount of BNB to withdraw
      * @return _uuid - unique id against which this Undelegation event was logged
      * @return _amount - Amount of funds required to Unstake
      * @notice Use `getBotUndelegateRequest` function to get more details of the logged data
@@ -286,7 +286,7 @@ contract StakeManager is
         require(_amount > 0, "Insufficient Withdraw Amount");
 
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest(
-            block.timestamp,
+            0,
             0,
             _amount,
             totalBnbXToBurn_
@@ -297,6 +297,27 @@ contract StakeManager is
 
         isUndelegationPending = true;
         IBnbX(bnbX).burn(address(this), totalBnbXToBurn_);
+    }
+
+    /**
+     * @dev Allows Bot to communicate regarding start of Undelegation Event at Beacon Chain
+     * @param _uuid - unique id against which this Undelegation event was logged
+     */
+    function undelegationStarted(uint256 _uuid)
+        external
+        override
+        whenNotPaused
+        onlyRole(BOT)
+    {
+        BotUndelegateRequest
+            storage botUndelegateRequest = uuidToBotUndelegateRequestMap[_uuid];
+        require(
+            (botUndelegateRequest.amount > 0) &&
+                (botUndelegateRequest.startTime == 0),
+            "Invalid UUID"
+        );
+
+        botUndelegateRequest.startTime = block.timestamp;
     }
 
     /**
