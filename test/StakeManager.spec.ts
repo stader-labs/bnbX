@@ -150,7 +150,7 @@ describe("Stake Manager Contract", () => {
         .withArgs(amount.sub(smallAmount));
       expect(await stakeManager.totalDeposited()).to.be.eq(amount);
       expect(await stakeManager.depositsInContract()).to.be.eq(smallAmount);
-      expect(await stakeManager.totalOutBuffer()).to.be.eq(
+      expect(await stakeManager.depositsBridgingOut()).to.be.eq(
         amount.sub(smallAmount)
       );
 
@@ -194,7 +194,7 @@ describe("Stake Manager Contract", () => {
         .emit(stakeManager, "Delegate")
         .withArgs(0, amount);
       expect(await stakeManager.totalDeposited()).to.be.eq(amount);
-      expect(await stakeManager.totalOutBuffer()).to.be.eq(0);
+      expect(await stakeManager.depositsBridgingOut()).to.be.eq(0);
 
       const botDelegateRequest = await bStakeManager.getBotDelegateRequest(0);
       expect(botDelegateRequest.endTime).to.be.not.eq(0);

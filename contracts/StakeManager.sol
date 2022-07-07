@@ -26,7 +26,7 @@ contract StakeManager is
 
     uint256 public totalDeposited; // total BNB deposited in contract
     uint256 public depositsInContract; // total BNB deposited but yet not staked on Beacon Chain
-    uint256 public totalOutBuffer; // total BNB in relayer while transfering BSC -> BC
+    uint256 public depositsBridgingOut; // total BNB in relayer while transfering BSC -> BC
     uint256 public totalDelegatedRewards; // total BNB rewards which are already delegated / staked
     uint256 public totalBnbXToBurn;
 
@@ -129,7 +129,7 @@ contract StakeManager is
             0,
             _amount
         );
-        totalOutBuffer += _amount;
+        depositsBridgingOut += _amount;
         depositsInContract -= _amount;
 
         // sends funds to BC
@@ -164,7 +164,7 @@ contract StakeManager is
 
         uuidToBotDelegateRequestMap[_uuid].endTime = block.timestamp;
         uint256 amount = uuidToBotDelegateRequestMap[_uuid].amount;
-        totalOutBuffer -= amount;
+        depositsBridgingOut -= amount;
 
         isDelegationPending = false;
         emit Delegate(_uuid, amount);
@@ -358,7 +358,7 @@ contract StakeManager is
         return (totalDeposited +
             totalDelegatedRewards -
             depositsInContract -
-            totalOutBuffer);
+            depositsBridgingOut);
     }
 
     function getContracts()
