@@ -272,10 +272,40 @@ describe("Stake Manager Contract", () => {
       expect(await bnbX.balanceOf(stakeManager.address)).to.be.eq(
         withdrawAmount
       );
-      expect(await stakeManager.totalBnbToWithdraw()).to.be.eq(withdrawAmount);
+      // expect(await stakeManager.totalBnbToWithdraw()).to.be.eq(withdrawAmount);
       expect(await stakeManager.totalBnbXToBurn()).to.be.eq(withdrawAmount);
       userRequests = await stakeManager.getUserWithdrawalRequests(user.address);
       expect(userRequests.length).to.be.eq(1);
+    });
+
+    it("Should successfully raise 100 withdraw request", async () => {
+      const amount = ethers.utils.parseEther("2");
+      const withdrawAmount = ethers.utils.parseEther("0.01");
+
+      await uStakeManager.deposit({ value: amount });
+
+      await bStakeManager.startDelegation({ value: relayFee });
+      await bStakeManager.completeDelegation(0);
+
+      let userRequests = await stakeManager.getUserWithdrawalRequests(
+        user.address
+      );
+      expect(userRequests.length).to.be.eq(0);
+
+      await bnbXApprove(user, amount);
+
+      for (let i = 0; i < 100; i++) {
+        await uStakeManager.requestWithdraw(withdrawAmount);
+      }
+
+      expect(await bnbX.balanceOf(stakeManager.address)).to.be.eq(
+        ethers.utils.parseEther("1")
+      );
+      expect(await stakeManager.totalBnbXToBurn()).to.be.eq(
+        ethers.utils.parseEther("1")
+      );
+      userRequests = await stakeManager.getUserWithdrawalRequests(user.address);
+      expect(userRequests.length).to.be.eq(100);
     });
   });
 
@@ -308,7 +338,7 @@ describe("Stake Manager Contract", () => {
       );
 
       await bStakeManager.startUndelegation();
-      expect(await stakeManager.totalBnbToWithdraw()).to.be.eq(0);
+      // expect(await stakeManager.totalBnbToWithdraw()).to.be.eq(0);
       expect(await stakeManager.totalBnbXToBurn()).to.be.eq(0);
       expect(await bnbX.balanceOf(stakeManager.address)).to.be.eq(0);
 
