@@ -215,10 +215,10 @@ contract StakeManager is
     {
         require(_amountInBnbX > 0, "Invalid Amount");
 
-        uint256 amount = convertBnbXToBnb(_amountInBnbX);
-        uint256 totalBnbToWithdraw = convertBnbXToBnb(totalBnbXToBurn);
+        uint256 totalBnbXToBurn_ = totalBnbXToBurn + _amountInBnbX;
+        uint256 totalBnbToWithdraw = convertBnbXToBnb(totalBnbXToBurn_);
         require(
-            amount <= (depositsDelegated - totalBnbToWithdraw),
+            totalBnbToWithdraw <= depositsDelegated,
             "Not enough BNB to withdraw"
         );
 
