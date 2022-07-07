@@ -90,6 +90,11 @@ interface IStakeManager {
         view
         returns (bool _isClaimable, uint256 _amount);
 
+    function getAllowedWithdrawLimit()
+        external
+        view
+        returns (uint256 _allowedWithdrawBnbXLimit);
+
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
 
     function convertBnbXToBnb(uint256 _amountInBnbX)

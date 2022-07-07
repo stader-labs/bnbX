@@ -486,6 +486,17 @@ contract StakeManager is
         _isClaimable = (botUndelegateRequest.endTime != 0);
     }
 
+    function getAllowedWithdrawLimit()
+        external
+        view
+        override
+        returns (uint256 _allowedWithdrawBnbXLimit)
+    {
+        _allowedWithdrawBnbXLimit =
+            convertBnbToBnbX(depositsDelegated) -
+            totalBnbXToBurn;
+    }
+
     ////////////////////////////////////////////////////////////
     /////                                                    ///
     /////            ***Helpers & Utilities***               ///
