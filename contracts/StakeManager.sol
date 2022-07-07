@@ -25,7 +25,7 @@ contract StakeManager is
     using SafeERC20Upgradeable for IERC20Upgradeable;
 
     uint256 public depositsDelegated; // total BNB delegated to validators on Beacon Chain
-    uint256 public depositsInContract; // total BNB deposited in contract but yet not staked on Beacon Chain
+    uint256 public depositsInContract; // total BNB deposited in contract but not yet transferred to relayer for moving to BC.
     uint256 public depositsBridgingOut; // total BNB in relayer while transfering BSC -> BC
     uint256 public totalBnbXToBurn;
 
@@ -47,6 +47,11 @@ contract StakeManager is
     uint256 public minDelegateThreshold;
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
+
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
 
     /**
      * @param _bnbX - Address of BnbX Token on Binance Smart Chain
