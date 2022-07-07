@@ -222,12 +222,6 @@ contract StakeManager is
             "Not enough BNB to withdraw"
         );
 
-        IERC20Upgradeable(bnbX).safeTransferFrom(
-            msg.sender,
-            address(this),
-            _amountInBnbX
-        );
-
         totalBnbXToBurn += _amountInBnbX;
         userWithdrawalRequests[msg.sender].push(
             WithdrawalRequest(
@@ -237,6 +231,11 @@ contract StakeManager is
             )
         );
 
+        IERC20Upgradeable(bnbX).safeTransferFrom(
+            msg.sender,
+            address(this),
+            _amountInBnbX
+        );
         emit RequestWithdraw(msg.sender, _amountInBnbX);
     }
 
