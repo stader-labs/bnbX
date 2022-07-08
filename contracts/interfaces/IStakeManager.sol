@@ -95,6 +95,8 @@ interface IStakeManager {
         view
         returns (uint256 _allowedWithdrawBnbXLimit);
 
+    function getExtraBnbInContract() external view returns (uint256 _extraBnb);
+
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
 
     function convertBnbXToBnb(uint256 _amountInBnbX)

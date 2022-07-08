@@ -28,6 +28,7 @@ contract StakeManager is
     uint256 public depositsInContract; // total BNB deposited in contract but not yet transferred to relayer for moving to BC.
     uint256 public depositsBridgingOut; // total BNB in relayer while transfering BSC -> BC
     uint256 public totalBnbXToBurn;
+    uint256 public totalClaimableBnb; // total BNB available to be claimed and resides in contract
 
     uint256 public nextDelegateUUID;
     uint256 public nextUndelegateUUID;
@@ -259,6 +260,8 @@ contract StakeManager is
         uint256 totalBnbXToBurn_ = botUndelegateRequest.amountInBnbX;
         uint256 amount = (totalBnbToWithdraw_ * amountInBnbX) /
             totalBnbXToBurn_;
+
+        totalClaimableBnb -= amount;
         AddressUpgradeable.sendValue(payable(user), amount);
 
         emit ClaimWithdrawal(user, _idx, amount);
@@ -341,6 +344,7 @@ contract StakeManager is
         uint256 amount = msg.value;
         require(amount >= botUndelegateRequest.amount, "Insufficient Fund");
         botUndelegateRequest.endTime = block.timestamp;
+        totalClaimableBnb += botUndelegateRequest.amount;
 
         emit Undelegate(_uuid, amount);
     }
@@ -490,6 +494,18 @@ contract StakeManager is
         _allowedWithdrawBnbXLimit =
             convertBnbToBnbX(depositsDelegated) -
             totalBnbXToBurn;
+    }
+
+    function getExtraBnbInContract()
+        external
+        view
+        override
+        returns (uint256 _extraBnb)
+    {
+        _extraBnb =
+            address(this).balance -
+            depositsInContract -
+            totalClaimableBnb;
     }
 
     ////////////////////////////////////////////////////////////
