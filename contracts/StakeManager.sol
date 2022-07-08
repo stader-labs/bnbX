@@ -485,13 +485,13 @@ contract StakeManager is
         _isClaimable = (botUndelegateRequest.endTime != 0);
     }
 
-    function getAllowedWithdrawLimit()
+    function getBnbXWithdrawLimit()
         external
         view
         override
-        returns (uint256 _allowedWithdrawBnbXLimit)
+        returns (uint256 _bnbXWithdrawLimit)
     {
-        _allowedWithdrawBnbXLimit =
+        _bnbXWithdrawLimit =
             convertBnbToBnbX(depositsDelegated) -
             totalBnbXToBurn;
     }
