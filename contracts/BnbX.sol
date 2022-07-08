@@ -15,6 +15,8 @@ contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
         __AccessControl_init();
         __ERC20_init("Liquid Staking BNB", "BNBx");
 
+        require(_manager != address(0), "zero address provided");
+
         _setupRole(DEFAULT_ADMIN_ROLE, _manager);
     }
 

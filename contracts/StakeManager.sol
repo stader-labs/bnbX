@@ -70,9 +70,6 @@ contract StakeManager is
         __AccessControl_init();
         __Pausable_init();
 
-        _setupRole(DEFAULT_ADMIN_ROLE, _manager);
-        _setupRole(BOT, _bot);
-
         require(
             ((_bnbX != address(0)) &&
                 (_manager != address(0)) &&
@@ -81,6 +78,9 @@ contract StakeManager is
                 (_bot != address(0))),
             "zero address provided"
         );
+
+        _setupRole(DEFAULT_ADMIN_ROLE, _manager);
+        _setupRole(BOT, _bot);
 
         bnbX = _bnbX;
         tokenHub = _tokenHub;
