@@ -137,11 +137,11 @@ contract StakeManager is
         require(_amount >= minDelegateThreshold, "Insufficient Deposit Amount");
 
         _uuid = nextDelegateUUID++; // post-increment : assigns the current value first and then increments
-        uuidToBotDelegateRequestMap[_uuid] = BotDelegateRequest(
-            block.timestamp,
-            0,
-            _amount
-        );
+        uuidToBotDelegateRequestMap[_uuid] = BotDelegateRequest({
+            startTime: block.timestamp,
+            endTime: 0,
+            amount: _amount
+        });
         depositsBridgingOut += _amount;
         depositsInContract -= _amount;
 
@@ -225,11 +225,11 @@ contract StakeManager is
         );
 
         userWithdrawalRequests[msg.sender].push(
-            WithdrawalRequest(
-                nextUndelegateUUID,
-                _amountInBnbX,
-                block.timestamp
-            )
+            WithdrawalRequest({
+                uuid: nextUndelegateUUID,
+                amountInBnbX: _amountInBnbX,
+                startTime: block.timestamp
+            })
         );
 
         IERC20Upgradeable(bnbX).safeTransferFrom(
@@ -285,12 +285,12 @@ contract StakeManager is
         _amount = convertBnbXToBnb(totalBnbXToBurn_);
         require(_amount > 0, "Insufficient Withdraw Amount");
 
-        uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest(
-            0,
-            0,
-            _amount,
-            totalBnbXToBurn_
-        );
+        uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
+            startTime: 0,
+            endTime: 0,
+            amount: _amount,
+            amountInBnbX: totalBnbXToBurn_
+        });
 
         depositsDelegated -= _amount;
         totalBnbXToBurn = 0;
@@ -336,7 +336,7 @@ contract StakeManager is
         BotUndelegateRequest
             storage botUndelegateRequest = uuidToBotUndelegateRequestMap[_uuid];
         require(
-            (botUndelegateRequest.amount > 0) &&
+            (botUndelegateRequest.startTime != 0) &&
                 (botUndelegateRequest.endTime == 0),
             "Invalid UUID"
         );
