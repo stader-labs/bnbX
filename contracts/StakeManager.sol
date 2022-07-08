@@ -39,7 +39,6 @@ contract StakeManager is
     address private bot;
 
     bool private isDelegationPending; // initial default value false
-    bool private isUndelegationPending; // initial default value false
 
     mapping(uint256 => BotDelegateRequest) private uuidToBotDelegateRequestMap;
     mapping(uint256 => BotUndelegateRequest)
@@ -217,14 +216,13 @@ contract StakeManager is
     {
         require(_amountInBnbX > 0, "Invalid Amount");
 
-        uint256 totalBnbXToBurn_ = totalBnbXToBurn + _amountInBnbX;
-        uint256 totalBnbToWithdraw = convertBnbXToBnb(totalBnbXToBurn_);
+        totalBnbXToBurn += _amountInBnbX;
+        uint256 totalBnbToWithdraw = convertBnbXToBnb(totalBnbXToBurn);
         require(
             totalBnbToWithdraw <= depositsDelegated,
             "Not enough BNB to withdraw"
         );
 
-        totalBnbXToBurn += _amountInBnbX;
         userWithdrawalRequests[msg.sender].push(
             WithdrawalRequest(
                 nextUndelegateUUID,
@@ -279,8 +277,6 @@ contract StakeManager is
         onlyRole(BOT)
         returns (uint256 _uuid, uint256 _amount)
     {
-        require(!isUndelegationPending, "Previous Undelegation Pending");
-
         _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
         uint256 totalBnbXToBurn_ = totalBnbXToBurn; // To avoid Reentrancy attack
         _amount = convertBnbXToBnb(totalBnbXToBurn_);
@@ -296,7 +292,6 @@ contract StakeManager is
         depositsDelegated -= _amount;
         totalBnbXToBurn = 0;
 
-        isUndelegationPending = true;
         IBnbX(bnbX).burn(address(this), totalBnbXToBurn_);
     }
 
@@ -347,7 +342,6 @@ contract StakeManager is
         require(amount >= botUndelegateRequest.amount, "Insufficient Fund");
         botUndelegateRequest.endTime = block.timestamp;
 
-        isUndelegationPending = false;
         emit Undelegate(_uuid, amount);
     }
 
