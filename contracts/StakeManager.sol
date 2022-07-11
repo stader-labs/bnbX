@@ -374,6 +374,7 @@ contract StakeManager is
         emit SetBotAddress(_address);
     }
 
+    /// @param _address - Beck32 decoding of Address of deposit Bot Wallet on Beacon Chain with `0x` prefix
     function setBCDepositWallet(address _address)
         external
         override
