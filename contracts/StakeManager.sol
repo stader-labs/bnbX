@@ -370,6 +370,19 @@ contract StakeManager is
         emit SetBotAddress(_address);
     }
 
+    function setBCDepositWallet(address _address)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(bcDepositWallet != _address, "Old address == new address");
+        require(_address != address(0), "zero address provided");
+
+        bot = _address;
+
+        emit SetBCDepositWallet(_address);
+    }
+
     function setMinDelegateThreshold(uint256 _minDelegateThreshold)
         external
         override

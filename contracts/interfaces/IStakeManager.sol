@@ -52,7 +52,9 @@ interface IStakeManager {
 
     function completeUndelegation(uint256 _uuid) external payable;
 
-    function setBotAddress(address _bot) external;
+    function setBotAddress(address _address) external;
+
+    function setBCDepositWallet(address _address) external;
 
     function setMinDelegateThreshold(uint256 _minDelegateThreshold) external;
 
@@ -107,6 +109,7 @@ interface IStakeManager {
     event Delegate(uint256 _uuid, uint256 _amount);
     event TransferOut(uint256 _amount);
     event SetBotAddress(address indexed _address);
+    event SetBCDepositWallet(address indexed _address);
     event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
     event ClaimWithdrawal(
         address indexed _account,
