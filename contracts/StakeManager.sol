@@ -14,7 +14,7 @@ import {ITokenHub} from "./interfaces/ITokenHub.sol";
 
 /**
  * @title Stake Manager Contract
- * @dev Handles Staking of Bnb on BSC
+ * @dev Handles Staking of BNB on BSC
  */
 contract StakeManager is
     IStakeManager,
@@ -161,7 +161,7 @@ contract StakeManager is
 
     /**
      * @dev Allows bot to mark the delegateRequest as complete and update the state variables
-     * @param _uuid - unique id for which the delgation was completion
+     * @param _uuid - unique id for which the delgation was completed
      * @notice Use `getBotDelegateRequest` function to get more details of the logged data
      */
     function completeDelegation(uint256 _uuid)
@@ -185,13 +185,17 @@ contract StakeManager is
         emit Delegate(_uuid, amount);
     }
 
+    /**
+     * @dev Allows bot to update the contract regarding the rewards
+     * @param _amount - Amount of reward
+     */
     function addRestakingRewards(uint256 _amount)
         external
         override
         whenNotPaused
         onlyRole(BOT)
     {
-        require(_amount > 0, "No fund");
+        require(_amount > 0, "No reward");
         require(depositsDelegated > 0, "No funds delegated");
 
         depositsDelegated += _amount;
