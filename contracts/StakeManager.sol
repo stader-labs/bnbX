@@ -378,7 +378,7 @@ contract StakeManager is
         require(bcDepositWallet != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
 
-        bot = _address;
+        bcDepositWallet = _address;
 
         emit SetBCDepositWallet(_address);
     }
