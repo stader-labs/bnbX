@@ -15,6 +15,8 @@ contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
         __AccessControl_init();
         __ERC20_init("Liquid Staking BNB", "BNBx");
 
+        require(_manager != address(0), "zero address provided");
+
         _setupRole(DEFAULT_ADMIN_ROLE, _manager);
     }
 
@@ -40,6 +42,7 @@ contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
         require(stakeManager != _address, "Old address == new address");
+        require(_address != address(0), "zero address provided");
 
         _revokeRole(PREDICATE_ROLE, stakeManager);
         stakeManager = _address;

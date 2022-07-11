@@ -38,7 +38,7 @@ interface IStakeManager {
 
     function completeDelegation(uint256 _uuid) external;
 
-    function increaseTotalDelegatedRewards(uint256 _amount) external;
+    function addRestakingRewards(uint256 _amount) external;
 
     function requestWithdraw(uint256 _amountInBnbX) external;
 
@@ -48,15 +48,17 @@ interface IStakeManager {
         external
         returns (uint256 _uuid, uint256 _amount);
 
+    function undelegationStarted(uint256 _uuid) external;
+
     function completeUndelegation(uint256 _uuid) external payable;
 
-    function setBotAddress(address _bot) external;
+    function setBotAddress(address _address) external;
+
+    function setBCDepositWallet(address _address) external;
 
     function setMinDelegateThreshold(uint256 _minDelegateThreshold) external;
 
     function getTotalPooledBnb() external view returns (uint256);
-
-    function getTotalStakedBnb() external view returns (uint256);
 
     function getContracts()
         external
@@ -90,6 +92,13 @@ interface IStakeManager {
         view
         returns (bool _isClaimable, uint256 _amount);
 
+    function getBnbXWithdrawLimit()
+        external
+        view
+        returns (uint256 _bnbXWithdrawLimit);
+
+    function getExtraBnbInContract() external view returns (uint256 _extraBnb);
+
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
 
     function convertBnbXToBnb(uint256 _amountInBnbX)
@@ -100,6 +109,7 @@ interface IStakeManager {
     event Delegate(uint256 _uuid, uint256 _amount);
     event TransferOut(uint256 _amount);
     event SetBotAddress(address indexed _address);
+    event SetBCDepositWallet(address indexed _address);
     event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
     event ClaimWithdrawal(
         address indexed _account,
