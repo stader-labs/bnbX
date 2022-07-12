@@ -11,6 +11,11 @@ contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
     bytes32 public constant PREDICATE_ROLE = keccak256("PREDICATE_ROLE");
     address private stakeManager;
 
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     function initialize(address _manager) external override initializer {
         __AccessControl_init();
         __ERC20_init("Liquid Staking BNB", "BNBx");
