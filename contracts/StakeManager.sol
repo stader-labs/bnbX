@@ -149,8 +149,8 @@ contract StakeManager is
 
         isDelegationPending = true;
 
-        // sends funds to BC
-        uint64 expireTime = uint64(block.timestamp + 2 minutes);
+        // sends funds to BC // have experimented with 13 hours and it worked
+        uint64 expireTime = uint64(block.timestamp + 1 hours);
         ITokenHub(tokenHub).transferOut{value: (_amount + relayFeeReceived)}(
             address(0),
             bcDepositWallet,
@@ -335,7 +335,7 @@ contract StakeManager is
      * communicate regarding completion of Undelegation Event
      * @param _uuid - unique id against which this Undelegation event was logged
      * @notice Use `getBotUndelegateRequest` function to get more details of the logged data
-     * @notice send at least the required fund
+     * @notice send exact amount of BNB
      */
     function completeUndelegation(uint256 _uuid)
         external
@@ -353,7 +353,7 @@ contract StakeManager is
         );
 
         uint256 amount = msg.value;
-        require(amount >= botUndelegateRequest.amount, "Insufficient Fund");
+        require(amount == botUndelegateRequest.amount, "Insufficient Fund");
         botUndelegateRequest.endTime = block.timestamp;
         totalClaimableBnb += botUndelegateRequest.amount;
 
