@@ -289,8 +289,6 @@ contract StakeManager is
         _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
         uint256 totalBnbXToBurn_ = totalBnbXToBurn; // To avoid Reentrancy attack
         _amount = convertBnbXToBnb(totalBnbXToBurn_);
-        _amount = _amount - (_amount % TEN_DECIMALS);
-        totalBnbXToBurn_ = convertBnbToBnbX(_amount);
 
         require(
             _amount >= minUndelegateThreshold,
@@ -305,7 +303,7 @@ contract StakeManager is
         });
 
         depositsDelegated -= _amount;
-        totalBnbXToBurn -= totalBnbXToBurn_;
+        totalBnbXToBurn = 0;
 
         IBnbX(bnbX).burn(address(this), totalBnbXToBurn_);
     }
