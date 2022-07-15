@@ -221,9 +221,16 @@ contract StakeManager is
         override
         whenNotPaused
     {
-        require(_amountInBnbX > 0, "Invalid Amount");
-
+        // user request to withdraw against `_amountInBnbX`
+        // but due to Beacon Chain withdraw restrictions
+        // user will be able to withdraw against `bnbXToburn` amount
         uint256 bnbToWithdraw = convertBnbXToBnb(_amountInBnbX);
+        uint256 dust = bnbToWithdraw % TEN_DECIMALS;
+        bnbToWithdraw -= dust;
+        uint256 bnbXToburn = convertBnbToBnbX(bnbToWithdraw);
+
+        require(bnbToWithdraw > 0, "Invalid Amount");
+
         require(
             bnbToWithdraw <= depositsDelegated,
             "Not enough BNB to withdraw"
@@ -242,11 +249,11 @@ contract StakeManager is
         IERC20Upgradeable(bnbX).safeTransferFrom(
             msg.sender,
             address(this),
-            _amountInBnbX
+            bnbXToburn
         );
-        IBnbX(bnbX).burn(address(this), _amountInBnbX);
+        IBnbX(bnbX).burn(address(this), bnbXToburn);
 
-        emit RequestWithdraw(msg.sender, bnbToWithdraw, _amountInBnbX);
+        emit RequestWithdraw(msg.sender, bnbToWithdraw, bnbXToburn);
     }
 
     function claimWithdraw(uint256 _idx) external override whenNotPaused {
