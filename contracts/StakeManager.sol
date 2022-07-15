@@ -33,6 +33,7 @@ contract StakeManager is
     uint256 public nextDelegateUUID;
     uint256 public nextUndelegateUUID;
     uint256 public minDelegateThreshold;
+    uint256 public minUndelegateThreshold;
 
     address private bnbX;
     address private bcDepositWallet;
@@ -88,6 +89,7 @@ contract StakeManager is
         bcDepositWallet = _bcDepositWallet;
         bot = _bot;
         minDelegateThreshold = 1e18;
+        minUndelegateThreshold = 1e18;
     }
 
     ////////////////////////////////////////////////////////////
@@ -287,7 +289,12 @@ contract StakeManager is
         _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
         uint256 totalBnbXToBurn_ = totalBnbXToBurn; // To avoid Reentrancy attack
         _amount = convertBnbXToBnb(totalBnbXToBurn_);
-        require(_amount > 0, "Insufficient Withdraw Amount");
+        _amount -= _amount % TEN_DECIMALS;
+
+        require(
+            _amount >= minUndelegateThreshold,
+            "Insufficient Withdraw Amount"
+        );
 
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
             startTime: 0,
@@ -395,6 +402,15 @@ contract StakeManager is
     {
         require(_minDelegateThreshold > 0, "Invalid Threshold");
         minDelegateThreshold = _minDelegateThreshold;
+    }
+
+    function setMinUndelegateThreshold(uint256 _minUndelegateThreshold)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(_minUndelegateThreshold > 0, "Invalid Threshold");
+        minUndelegateThreshold = _minUndelegateThreshold;
     }
 
     ////////////////////////////////////////////////////////////
