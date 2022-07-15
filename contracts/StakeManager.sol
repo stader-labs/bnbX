@@ -27,7 +27,7 @@ contract StakeManager is
     uint256 public depositsDelegated; // total BNB delegated to validators on Beacon Chain
     uint256 public depositsInContract; // total BNB deposited in contract but not yet transferred to relayer for moving to BC.
     uint256 public depositsBridgingOut; // total BNB in relayer while transfering BSC -> BC
-    uint256 public totalBnbXToBurn;
+    uint256 public totalBnbToWithdraw;
     uint256 public totalClaimableBnb; // total BNB available to be claimed and resides in contract
 
     uint256 public nextDelegateUUID;
@@ -223,27 +223,30 @@ contract StakeManager is
     {
         require(_amountInBnbX > 0, "Invalid Amount");
 
-        totalBnbXToBurn += _amountInBnbX;
-        uint256 totalBnbToWithdraw = convertBnbXToBnb(totalBnbXToBurn);
+        uint256 bnbToWithdraw = convertBnbXToBnb(_amountInBnbX);
         require(
-            totalBnbToWithdraw <= depositsDelegated,
+            bnbToWithdraw <= depositsDelegated,
             "Not enough BNB to withdraw"
         );
 
         userWithdrawalRequests[msg.sender].push(
             WithdrawalRequest({
                 uuid: nextUndelegateUUID,
-                amountInBnbX: _amountInBnbX,
+                amount: bnbToWithdraw,
                 startTime: block.timestamp
             })
         );
+        depositsDelegated -= bnbToWithdraw;
+        totalBnbToWithdraw += bnbToWithdraw;
 
         IERC20Upgradeable(bnbX).safeTransferFrom(
             msg.sender,
             address(this),
             _amountInBnbX
         );
-        emit RequestWithdraw(msg.sender, _amountInBnbX);
+        IBnbX(bnbX).burn(address(this), _amountInBnbX);
+
+        emit RequestWithdraw(msg.sender, bnbToWithdraw, _amountInBnbX);
     }
 
     function claimWithdraw(uint256 _idx) external override whenNotPaused {
@@ -254,23 +257,18 @@ contract StakeManager is
 
         WithdrawalRequest storage withdrawRequest = userRequests[_idx];
         uint256 uuid = withdrawRequest.uuid;
-        uint256 amountInBnbX = withdrawRequest.amountInBnbX;
+        uint256 bnbToWithdraw = withdrawRequest.amount;
+        userRequests[_idx] = userRequests[userRequests.length - 1];
+        userRequests.pop();
 
         BotUndelegateRequest
             storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
         require(botUndelegateRequest.endTime != 0, "Not able to claim yet");
-        userRequests[_idx] = userRequests[userRequests.length - 1];
-        userRequests.pop();
 
-        uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
-        uint256 totalBnbXToBurn_ = botUndelegateRequest.amountInBnbX;
-        uint256 amount = (totalBnbToWithdraw_ * amountInBnbX) /
-            totalBnbXToBurn_;
+        totalClaimableBnb -= bnbToWithdraw;
+        AddressUpgradeable.sendValue(payable(user), bnbToWithdraw);
 
-        totalClaimableBnb -= amount;
-        AddressUpgradeable.sendValue(payable(user), amount);
-
-        emit ClaimWithdrawal(user, _idx, amount);
+        emit ClaimWithdrawal(user, _idx, bnbToWithdraw);
     }
 
     /**
@@ -287,9 +285,7 @@ contract StakeManager is
         returns (uint256 _uuid, uint256 _amount)
     {
         _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
-        uint256 totalBnbXToBurn_ = totalBnbXToBurn; // To avoid Reentrancy attack
-        _amount = convertBnbXToBnb(totalBnbXToBurn_);
-
+        _amount = totalBnbToWithdraw;
         require(
             _amount >= minUndelegateThreshold,
             "Insufficient Withdraw Amount"
@@ -298,14 +294,9 @@ contract StakeManager is
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
             startTime: 0,
             endTime: 0,
-            amount: _amount,
-            amountInBnbX: totalBnbXToBurn_
+            amount: _amount
         });
-
-        depositsDelegated -= _amount;
-        totalBnbXToBurn = 0;
-
-        IBnbX(bnbX).burn(address(this), totalBnbXToBurn_);
+        totalBnbToWithdraw = 0;
     }
 
     /**
@@ -500,21 +491,11 @@ contract StakeManager is
 
         WithdrawalRequest storage withdrawRequest = userRequests[_idx];
         uint256 uuid = withdrawRequest.uuid;
-        uint256 amountInBnbX = withdrawRequest.amountInBnbX;
+        _amount = withdrawRequest.amount;
 
         BotUndelegateRequest
             storage botUndelegateRequest = uuidToBotUndelegateRequestMap[uuid];
 
-        // bot has triggered startUndelegation
-        if (botUndelegateRequest.amount > 0) {
-            uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
-            uint256 totalBnbXToBurn_ = botUndelegateRequest.amountInBnbX;
-            _amount = (totalBnbToWithdraw_ * amountInBnbX) / totalBnbXToBurn_;
-        }
-        // bot has not triggered startUndelegation yet
-        else {
-            _amount = convertBnbXToBnb(amountInBnbX);
-        }
         _isClaimable = (botUndelegateRequest.endTime != 0);
     }
 
@@ -524,9 +505,7 @@ contract StakeManager is
         override
         returns (uint256 _bnbXWithdrawLimit)
     {
-        _bnbXWithdrawLimit =
-            convertBnbToBnbX(depositsDelegated) -
-            totalBnbXToBurn;
+        _bnbXWithdrawLimit = convertBnbToBnbX(depositsDelegated);
     }
 
     function getExtraBnbInContract()

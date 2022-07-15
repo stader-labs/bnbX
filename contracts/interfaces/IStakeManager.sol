@@ -12,12 +12,11 @@ interface IStakeManager {
         uint256 startTime;
         uint256 endTime;
         uint256 amount;
-        uint256 amountInBnbX;
     }
 
     struct WithdrawalRequest {
         uint256 uuid;
-        uint256 amountInBnbX;
+        uint256 amount;
         uint256 startTime;
     }
 
@@ -113,7 +112,11 @@ interface IStakeManager {
     event TransferOut(uint256 _amount);
     event SetBotAddress(address indexed _address);
     event SetBCDepositWallet(address indexed _address);
-    event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
+    event RequestWithdraw(
+        address indexed _account,
+        uint256 _amount,
+        uint256 _amountInBnbX
+    );
     event ClaimWithdrawal(
         address indexed _account,
         uint256 _idx,
