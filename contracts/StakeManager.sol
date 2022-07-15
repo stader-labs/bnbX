@@ -287,8 +287,6 @@ contract StakeManager is
         _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
         uint256 totalBnbXToBurn_ = totalBnbXToBurn; // To avoid Reentrancy attack
         _amount = convertBnbXToBnb(totalBnbXToBurn_);
-        _amount -= (_amount % TEN_DECIMALS);
-
         require(_amount > 0, "Insufficient Withdraw Amount");
 
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
