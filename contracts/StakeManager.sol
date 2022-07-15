@@ -174,8 +174,11 @@ contract StakeManager is
                 (botDelegateRequest.endTime == 0),
             "Invalid UUID"
         );
+
+        uint256 extraBNB = getExtraBnbInContract();
         require(
-            botDelegateRequest.amount == depositsBridgingOut,
+            (botDelegateRequest.amount == depositsBridgingOut) &&
+                (depositsBridgingOut <= extraBNB),
             "Invalid BridgingOut Amount"
         );
         _tokenHubTransferOut(depositsBridgingOut, relayFeeReceived);
@@ -537,7 +540,7 @@ contract StakeManager is
     }
 
     function getExtraBnbInContract()
-        external
+        public
         view
         override
         returns (uint256 _extraBnb)
