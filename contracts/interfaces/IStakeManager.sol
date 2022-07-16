@@ -52,11 +52,16 @@ interface IStakeManager {
 
     function completeUndelegation(uint256 _uuid) external payable;
 
-    function setBotAddress(address _address) external;
+    function setBotRole(address _address) external;
+
+    function revokeBotRole(address _address) external;
 
     function setBCDepositWallet(address _address) external;
 
     function setMinDelegateThreshold(uint256 _minDelegateThreshold) external;
+
+    function setMinUndelegateThreshold(uint256 _minUndelegateThreshold)
+        external;
 
     function getTotalPooledBnb() external view returns (uint256);
 
@@ -66,8 +71,7 @@ interface IStakeManager {
         returns (
             address _bnbX,
             address _tokenHub,
-            address _bcDepositWallet,
-            address _bot
+            address _bcDepositWallet
         );
 
     function getTokenHubRelayFee() external view returns (uint256);
@@ -108,7 +112,8 @@ interface IStakeManager {
 
     event Delegate(uint256 _uuid, uint256 _amount);
     event TransferOut(uint256 _amount);
-    event SetBotAddress(address indexed _address);
+    event SetBotRole(address indexed _address);
+    event RevokeBotRole(address indexed _address);
     event SetBCDepositWallet(address indexed _address);
     event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
     event ClaimWithdrawal(
