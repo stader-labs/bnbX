@@ -33,11 +33,11 @@ contract StakeManager is
     uint256 public nextDelegateUUID;
     uint256 public nextUndelegateUUID;
     uint256 public minDelegateThreshold;
+    uint256 public minUndelegateThreshold;
 
     address private bnbX;
     address private bcDepositWallet;
     address private tokenHub;
-    address private bot;
 
     bool private isDelegationPending; // initial default value false
 
@@ -86,8 +86,8 @@ contract StakeManager is
         bnbX = _bnbX;
         tokenHub = _tokenHub;
         bcDepositWallet = _bcDepositWallet;
-        bot = _bot;
         minDelegateThreshold = 1e18;
+        minUndelegateThreshold = 1e18;
     }
 
     ////////////////////////////////////////////////////////////
@@ -312,7 +312,12 @@ contract StakeManager is
         _uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
         uint256 totalBnbXToBurn_ = totalBnbXToBurn; // To avoid Reentrancy attack
         _amount = convertBnbXToBnb(totalBnbXToBurn_);
-        require(_amount > 0, "Insufficient Withdraw Amount");
+        _amount -= _amount % TEN_DECIMALS;
+
+        require(
+            _amount >= minUndelegateThreshold,
+            "Insufficient Withdraw Amount"
+        );
 
         uuidToBotUndelegateRequestMap[_uuid] = BotUndelegateRequest({
             startTime: 0,
@@ -353,7 +358,7 @@ contract StakeManager is
      * communicate regarding completion of Undelegation Event
      * @param _uuid - unique id against which this Undelegation event was logged
      * @notice Use `getBotUndelegateRequest` function to get more details of the logged data
-     * @notice send at least the required fund
+     * @notice send exact amount of BNB
      */
     function completeUndelegation(uint256 _uuid)
         external
@@ -371,7 +376,7 @@ contract StakeManager is
         );
 
         uint256 amount = msg.value;
-        require(amount >= botUndelegateRequest.amount, "Insufficient Fund");
+        require(amount == botUndelegateRequest.amount, "Insufficient Fund");
         botUndelegateRequest.endTime = block.timestamp;
         totalClaimableBnb += botUndelegateRequest.amount;
 
@@ -384,19 +389,28 @@ contract StakeManager is
     /////                                                    ///
     ////////////////////////////////////////////////////////////
 
-    function setBotAddress(address _address)
+    function setBotRole(address _address)
         external
         override
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(bot != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
 
-        _revokeRole(BOT, bot);
-        bot = _address;
         _setupRole(BOT, _address);
 
-        emit SetBotAddress(_address);
+        emit SetBotRole(_address);
+    }
+
+    function revokeBotRole(address _address)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(_address != address(0), "zero address provided");
+
+        _revokeRole(BOT, _address);
+
+        emit RevokeBotRole(_address);
     }
 
     /// @param _address - Beck32 decoding of Address of deposit Bot Wallet on Beacon Chain with `0x` prefix
@@ -422,6 +436,15 @@ contract StakeManager is
         minDelegateThreshold = _minDelegateThreshold;
     }
 
+    function setMinUndelegateThreshold(uint256 _minUndelegateThreshold)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(_minUndelegateThreshold > 0, "Invalid Threshold");
+        minUndelegateThreshold = _minUndelegateThreshold;
+    }
+
     ////////////////////////////////////////////////////////////
     /////                                                    ///
     /////                 ***Getters***                      ///
@@ -439,14 +462,12 @@ contract StakeManager is
         returns (
             address _bnbX,
             address _tokenHub,
-            address _bcDepositWallet,
-            address _bot
+            address _bcDepositWallet
         )
     {
         _bnbX = bnbX;
         _tokenHub = tokenHub;
         _bcDepositWallet = bcDepositWallet;
-        _bot = bot;
     }
 
     /**
@@ -558,7 +579,7 @@ contract StakeManager is
     ////////////////////////////////////////////////////////////
 
     function _tokenHubTransferOut(uint256 _amount, uint256 _relayFee) private {
-        // sends funds to BC
+        // have experimented with 13 hours and it worked
         uint64 expireTime = uint64(block.timestamp + 1 hours);
         ITokenHub(tokenHub).transferOut{value: (_amount + _relayFee)}(
             address(0),
