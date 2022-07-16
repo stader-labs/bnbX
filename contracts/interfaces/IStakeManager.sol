@@ -36,6 +36,8 @@ interface IStakeManager {
         payable
         returns (uint256 _uuid, uint256 _amount);
 
+    function retryTransferOut(uint256 _uuid) external payable;
+
     function completeDelegation(uint256 _uuid) external;
 
     function addRestakingRewards(uint256 _amount) external;

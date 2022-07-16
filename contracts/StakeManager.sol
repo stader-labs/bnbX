@@ -147,16 +147,41 @@ contract StakeManager is
 
         isDelegationPending = true;
 
-        // sends funds to BC // have experimented with 13 hours and it worked
-        uint64 expireTime = uint64(block.timestamp + 1 hours);
-        ITokenHub(tokenHub).transferOut{value: (_amount + relayFeeReceived)}(
-            address(0),
-            bcDepositWallet,
-            _amount,
-            expireTime
+        // sends funds to BC
+        _tokenHubTransferOut(_amount, relayFeeReceived);
+    }
+
+    function retryTransferOut(uint256 _uuid)
+        external
+        payable
+        override
+        whenNotPaused
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        uint256 tokenHubRelayFee = getTokenHubRelayFee();
+        uint256 relayFeeReceived = msg.value;
+        require(
+            relayFeeReceived >= tokenHubRelayFee,
+            "Require More Relay Fee, Check getTokenHubRelayFee"
         );
 
-        emit TransferOut(_amount);
+        BotDelegateRequest
+            storage botDelegateRequest = uuidToBotDelegateRequestMap[_uuid];
+
+        require(
+            isDelegationPending &&
+                (botDelegateRequest.startTime != 0) &&
+                (botDelegateRequest.endTime == 0),
+            "Invalid UUID"
+        );
+
+        uint256 extraBNB = getExtraBnbInContract();
+        require(
+            (botDelegateRequest.amount == depositsBridgingOut) &&
+                (depositsBridgingOut <= extraBNB),
+            "Invalid BridgingOut Amount"
+        );
+        _tokenHubTransferOut(depositsBridgingOut, relayFeeReceived);
     }
 
     /**
@@ -536,7 +561,7 @@ contract StakeManager is
     }
 
     function getExtraBnbInContract()
-        external
+        public
         view
         override
         returns (uint256 _extraBnb)
@@ -552,6 +577,19 @@ contract StakeManager is
     /////            ***Helpers & Utilities***               ///
     /////                                                    ///
     ////////////////////////////////////////////////////////////
+
+    function _tokenHubTransferOut(uint256 _amount, uint256 _relayFee) private {
+        // have experimented with 13 hours and it worked
+        uint64 expireTime = uint64(block.timestamp + 1 hours);
+        ITokenHub(tokenHub).transferOut{value: (_amount + _relayFee)}(
+            address(0),
+            bcDepositWallet,
+            _amount,
+            expireTime
+        );
+
+        emit TransferOut(_amount);
+    }
 
     /**
      * @dev Calculates amount of BnbX for `_amount` Bnb
