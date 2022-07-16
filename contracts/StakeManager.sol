@@ -38,7 +38,6 @@ contract StakeManager is
     address private bnbX;
     address private bcDepositWallet;
     address private tokenHub;
-    address private bot;
 
     bool private isDelegationPending; // initial default value false
 
@@ -87,7 +86,6 @@ contract StakeManager is
         bnbX = _bnbX;
         tokenHub = _tokenHub;
         bcDepositWallet = _bcDepositWallet;
-        bot = _bot;
         minDelegateThreshold = 1e18;
         minUndelegateThreshold = 1e18;
     }
@@ -366,19 +364,28 @@ contract StakeManager is
     /////                                                    ///
     ////////////////////////////////////////////////////////////
 
-    function setBotAddress(address _address)
+    function setBotRole(address _address)
         external
         override
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(bot != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
 
-        _revokeRole(BOT, bot);
-        bot = _address;
         _setupRole(BOT, _address);
 
-        emit SetBotAddress(_address);
+        emit SetBotRole(_address);
+    }
+
+    function revokeBotRole(address _address)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(_address != address(0), "zero address provided");
+
+        _revokeRole(BOT, _address);
+
+        emit RevokeBotRole(_address);
     }
 
     /// @param _address - Beck32 decoding of Address of deposit Bot Wallet on Beacon Chain with `0x` prefix
@@ -430,14 +437,12 @@ contract StakeManager is
         returns (
             address _bnbX,
             address _tokenHub,
-            address _bcDepositWallet,
-            address _bot
+            address _bcDepositWallet
         )
     {
         _bnbX = bnbX;
         _tokenHub = tokenHub;
         _bcDepositWallet = bcDepositWallet;
-        _bot = bot;
     }
 
     /**
