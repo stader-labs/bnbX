@@ -86,6 +86,8 @@ contract StakeManager is
         );
 
         _setRoleAdmin(BOT, MANAGER);
+        _setRoleAdmin(MANAGER, DEFAULT_ADMIN_ROLE);
+
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
         _setupRole(MANAGER, _manager);
         _setupRole(BOT, _bot);
@@ -96,6 +98,12 @@ contract StakeManager is
         bcDepositWallet = _bcDepositWallet;
         minDelegateThreshold = 1e18;
         minUndelegateThreshold = 1e18;
+
+        emit SetManager(_manager);
+        emit SetBotRole(_bot);
+        emit SetBCDepositWallet(bcDepositWallet);
+        emit SetMinDelegateThreshold(minDelegateThreshold);
+        emit SetMinUndelegateThreshold(minUndelegateThreshold);
     }
 
     ////////////////////////////////////////////////////////////
@@ -445,6 +453,8 @@ contract StakeManager is
     {
         require(_minDelegateThreshold > 0, "Invalid Threshold");
         minDelegateThreshold = _minDelegateThreshold;
+
+        emit SetMinDelegateThreshold(_minDelegateThreshold);
     }
 
     function setMinUndelegateThreshold(uint256 _minUndelegateThreshold)
@@ -454,6 +464,8 @@ contract StakeManager is
     {
         require(_minUndelegateThreshold > 0, "Invalid Threshold");
         minUndelegateThreshold = _minUndelegateThreshold;
+
+        emit SetMinUndelegateThreshold(_minUndelegateThreshold);
     }
 
     ////////////////////////////////////////////////////////////

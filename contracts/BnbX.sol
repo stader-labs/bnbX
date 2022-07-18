@@ -22,6 +22,7 @@ contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
 
         require(_manager != address(0), "zero address provided");
 
+        _setRoleAdmin(PREDICATE_ROLE, DEFAULT_ADMIN_ROLE);
         _setupRole(DEFAULT_ADMIN_ROLE, _manager);
     }
 

@@ -117,10 +117,6 @@ interface IStakeManager {
 
     event Delegate(uint256 _uuid, uint256 _amount);
     event TransferOut(uint256 _amount);
-    event SetManager(address indexed _address);
-    event SetBotRole(address indexed _address);
-    event RevokeBotRole(address indexed _address);
-    event SetBCDepositWallet(address indexed _address);
     event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
     event ClaimWithdrawal(
         address indexed _account,
@@ -129,4 +125,10 @@ interface IStakeManager {
     );
     event Undelegate(uint256 _uuid, uint256 _amount);
     event Redelegate(uint256 _amount);
+    event SetManager(address indexed _address);
+    event SetBotRole(address indexed _address);
+    event RevokeBotRole(address indexed _address);
+    event SetBCDepositWallet(address indexed _address);
+    event SetMinDelegateThreshold(uint256 _minDelegateThreshold);
+    event SetMinUndelegateThreshold(uint256 _minUndelegateThreshold);
 }
