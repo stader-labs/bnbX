@@ -23,6 +23,7 @@ interface IStakeManager {
 
     function initialize(
         address _bnbX,
+        address _admin,
         address _manager,
         address _tokenHub,
         address _bcDepositWallet,
@@ -53,6 +54,8 @@ interface IStakeManager {
     function undelegationStarted(uint256 _uuid) external;
 
     function completeUndelegation(uint256 _uuid) external payable;
+
+    function setManager(address _address) external;
 
     function setBotRole(address _address) external;
 
@@ -114,6 +117,7 @@ interface IStakeManager {
 
     event Delegate(uint256 _uuid, uint256 _amount);
     event TransferOut(uint256 _amount);
+    event SetManager(address indexed _address);
     event SetBotRole(address indexed _address);
     event RevokeBotRole(address indexed _address);
     event SetBCDepositWallet(address indexed _address);

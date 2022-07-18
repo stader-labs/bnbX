@@ -35,6 +35,7 @@ contract StakeManager is
     uint256 public minDelegateThreshold;
     uint256 public minUndelegateThreshold;
 
+    address private manager;
     address private bnbX;
     address private bcDepositWallet;
     address private tokenHub;
@@ -48,6 +49,7 @@ contract StakeManager is
 
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
+    bytes32 public constant MANAGER = keccak256("MANAGER");
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -56,6 +58,7 @@ contract StakeManager is
 
     /**
      * @param _bnbX - Address of BnbX Token on Binance Smart Chain
+     * @param _admin - Address of the admin
      * @param _manager - Address of the manager
      * @param _tokenHub - Address of the manager
      * @param _bcDepositWallet - Beck32 decoding of Address of deposit Bot Wallet on Beacon Chain with `0x` prefix
@@ -63,6 +66,7 @@ contract StakeManager is
      */
     function initialize(
         address _bnbX,
+        address _admin,
         address _manager,
         address _tokenHub,
         address _bcDepositWallet,
@@ -73,6 +77,7 @@ contract StakeManager is
 
         require(
             ((_bnbX != address(0)) &&
+                (_admin != address(0)) &&
                 (_manager != address(0)) &&
                 (_tokenHub != address(0)) &&
                 (_bcDepositWallet != address(0)) &&
@@ -80,9 +85,12 @@ contract StakeManager is
             "zero address provided"
         );
 
-        _setupRole(DEFAULT_ADMIN_ROLE, _manager);
+        _setRoleAdmin(BOT, MANAGER);
+        _setupRole(DEFAULT_ADMIN_ROLE, _admin);
+        _setupRole(MANAGER, _manager);
         _setupRole(BOT, _bot);
 
+        manager = _manager;
         bnbX = _bnbX;
         tokenHub = _tokenHub;
         bcDepositWallet = _bcDepositWallet;
@@ -156,7 +164,7 @@ contract StakeManager is
         payable
         override
         whenNotPaused
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyManager
     {
         uint256 tokenHubRelayFee = getTokenHubRelayFee();
         uint256 relayFeeReceived = msg.value;
@@ -389,11 +397,18 @@ contract StakeManager is
     /////                                                    ///
     ////////////////////////////////////////////////////////////
 
-    function setBotRole(address _address)
-        external
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function setManager(address _address) external override onlyManager {
+        require(manager != _address, "Old address == new address");
+        require(_address != address(0), "zero address provided");
+
+        _revokeRole(MANAGER, manager);
+        manager = _address;
+        _setupRole(MANAGER, _address);
+
+        emit SetManager(_address);
+    }
+
+    function setBotRole(address _address) external override onlyManager {
         require(_address != address(0), "zero address provided");
 
         _setupRole(BOT, _address);
@@ -401,11 +416,7 @@ contract StakeManager is
         emit SetBotRole(_address);
     }
 
-    function revokeBotRole(address _address)
-        external
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function revokeBotRole(address _address) external override onlyManager {
         require(_address != address(0), "zero address provided");
 
         _revokeRole(BOT, _address);
@@ -417,7 +428,7 @@ contract StakeManager is
     function setBCDepositWallet(address _address)
         external
         override
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyManager
     {
         require(bcDepositWallet != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
@@ -430,7 +441,7 @@ contract StakeManager is
     function setMinDelegateThreshold(uint256 _minDelegateThreshold)
         external
         override
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyManager
     {
         require(_minDelegateThreshold > 0, "Invalid Threshold");
         minDelegateThreshold = _minDelegateThreshold;
@@ -439,7 +450,7 @@ contract StakeManager is
     function setMinUndelegateThreshold(uint256 _minUndelegateThreshold)
         external
         override
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyManager
     {
         require(_minUndelegateThreshold > 0, "Invalid Threshold");
         minUndelegateThreshold = _minUndelegateThreshold;
@@ -636,5 +647,10 @@ contract StakeManager is
      */
     function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         paused() ? _unpause() : _pause();
+    }
+
+    modifier onlyManager() {
+        require(msg.sender == manager, "Accessible only through Manager");
+        _;
     }
 }
