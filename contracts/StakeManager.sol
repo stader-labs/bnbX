@@ -150,10 +150,7 @@ contract StakeManager is
         uint256 relayFeeReceived = msg.value;
         _amount = depositsInContract - (depositsInContract % TEN_DECIMALS);
 
-        require(
-            relayFeeReceived >= tokenHubRelayFee,
-            "Require More Relay Fee, Check getTokenHubRelayFee"
-        );
+        require(relayFeeReceived >= tokenHubRelayFee, "Insufficient RelayFee");
         require(_amount >= minDelegateThreshold, "Insufficient Deposit Amount");
 
         _uuid = nextDelegateUUID++; // post-increment : assigns the current value first and then increments
@@ -180,10 +177,7 @@ contract StakeManager is
     {
         uint256 tokenHubRelayFee = getTokenHubRelayFee();
         uint256 relayFeeReceived = msg.value;
-        require(
-            relayFeeReceived >= tokenHubRelayFee,
-            "Require More Relay Fee, Check getTokenHubRelayFee"
-        );
+        require(relayFeeReceived >= tokenHubRelayFee, "Insufficient RelayFee");
 
         BotDelegateRequest
             storage botDelegateRequest = uuidToBotDelegateRequestMap[_uuid];

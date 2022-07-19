@@ -24,9 +24,9 @@ npx solhint 'contracts/**/*.sol' --fix
 To deploy contracts, run:
 
 ```bash
-npx hardhat deployBnbXProxy <manager> --network <network>
+npx hardhat deployBnbXProxy <admin> --network <network>
 npx hardhat deployBnbXImpl --network <network>
-npx hardhat deployStakeManagerProxy <bnbX> <manager> <tokenHub> <bcDepositWallet> <bot> --network <network>
+npx hardhat deployStakeManagerProxy <bnbX> <admin> <manager> <tokenHub> <bcDepositWallet> <bot> <feeBps> --network <network>
 npx hardhat deployStakeManagerImpl --network <network>
 ```
 
