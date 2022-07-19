@@ -35,7 +35,6 @@ contract StakeManager is
     uint256 public minDelegateThreshold;
     uint256 public minUndelegateThreshold;
 
-    address private manager;
     address private bnbX;
     address private bcDepositWallet;
     address private tokenHub;
@@ -49,7 +48,10 @@ contract StakeManager is
 
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
-    bytes32 public constant MANAGER = keccak256("MANAGER");
+
+    address private manager; // move all the below vairables above during final contract deployment
+    address private proposedManager;
+    uint256 public feeBps; // range {0-10_000}
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -63,6 +65,7 @@ contract StakeManager is
      * @param _tokenHub - Address of the manager
      * @param _bcDepositWallet - Beck32 decoding of Address of deposit Bot Wallet on Beacon Chain with `0x` prefix
      * @param _bot - Address of the Bot
+     * @param _feeBps - Fee Basis Points
      */
     function initialize(
         address _bnbX,
@@ -70,7 +73,8 @@ contract StakeManager is
         address _manager,
         address _tokenHub,
         address _bcDepositWallet,
-        address _bot
+        address _bot,
+        uint256 _feeBps
     ) external override initializer {
         __AccessControl_init();
         __Pausable_init();
@@ -84,12 +88,10 @@ contract StakeManager is
                 (_bot != address(0))),
             "zero address provided"
         );
+        require(_feeBps <= 10000, "_feeBps must not exceed 10000 (100%)");
 
-        _setRoleAdmin(BOT, MANAGER);
-        _setRoleAdmin(MANAGER, DEFAULT_ADMIN_ROLE);
-
+        _setRoleAdmin(BOT, DEFAULT_ADMIN_ROLE);
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
-        _setupRole(MANAGER, _manager);
         _setupRole(BOT, _bot);
 
         manager = _manager;
@@ -98,12 +100,14 @@ contract StakeManager is
         bcDepositWallet = _bcDepositWallet;
         minDelegateThreshold = 1e18;
         minUndelegateThreshold = 1e18;
+        feeBps = _feeBps;
 
         emit SetManager(_manager);
         emit SetBotRole(_bot);
         emit SetBCDepositWallet(bcDepositWallet);
         emit SetMinDelegateThreshold(minDelegateThreshold);
         emit SetMinUndelegateThreshold(minUndelegateThreshold);
+        emit SetFeeBps(_feeBps);
     }
 
     ////////////////////////////////////////////////////////////
@@ -405,13 +409,21 @@ contract StakeManager is
     /////                                                    ///
     ////////////////////////////////////////////////////////////
 
-    function setManager(address _address) external override onlyManager {
+    function proposeNewManager(address _address) external override onlyManager {
         require(manager != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
 
-        _revokeRole(MANAGER, manager);
-        manager = _address;
-        _setupRole(MANAGER, _address);
+        proposedManager = _address;
+
+        emit ProposeManager(_address);
+    }
+
+    function acceptNewManager(address _address) external override onlyManager {
+        require(proposedManager == _address, "Manager address mismatch");
+        require(_address != address(0), "zero address provided");
+
+        manager = proposedManager;
+        proposedManager = address(0);
 
         emit SetManager(_address);
     }
@@ -468,6 +480,14 @@ contract StakeManager is
         emit SetMinUndelegateThreshold(_minUndelegateThreshold);
     }
 
+    function setFeeBps(uint256 _feeBps) external override onlyManager {
+        require(_feeBps <= 10000, "_feeBps must not exceed 10000 (100%)");
+
+        feeBps = _feeBps;
+
+        emit SetFeeBps(_feeBps);
+    }
+
     ////////////////////////////////////////////////////////////
     /////                                                    ///
     /////                 ***Getters***                      ///
@@ -483,11 +503,13 @@ contract StakeManager is
         view
         override
         returns (
+            address _manager,
             address _bnbX,
             address _tokenHub,
             address _bcDepositWallet
         )
     {
+        _manager = manager;
         _bnbX = bnbX;
         _tokenHub = tokenHub;
         _bcDepositWallet = bcDepositWallet;

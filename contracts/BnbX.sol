@@ -7,8 +7,6 @@ import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol"
 import "./interfaces/IBnbX.sol";
 
 contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
-    /// @dev This Role is provided to StakeManager contract to mint/burn BnbX tokens
-    bytes32 public constant PREDICATE_ROLE = keccak256("PREDICATE_ROLE");
     address private stakeManager;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
@@ -16,20 +14,19 @@ contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
         _disableInitializers();
     }
 
-    function initialize(address _manager) external override initializer {
+    function initialize(address _admin) external override initializer {
         __AccessControl_init();
         __ERC20_init("Liquid Staking BNB", "BNBx");
 
-        require(_manager != address(0), "zero address provided");
+        require(_admin != address(0), "zero address provided");
 
-        _setRoleAdmin(PREDICATE_ROLE, DEFAULT_ADMIN_ROLE);
-        _setupRole(DEFAULT_ADMIN_ROLE, _manager);
+        _setupRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
     function mint(address _account, uint256 _amount)
         external
         override
-        onlyRole(PREDICATE_ROLE)
+        onlyStakeManager
     {
         _mint(_account, _amount);
     }
@@ -37,7 +34,7 @@ contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
     function burn(address _account, uint256 _amount)
         external
         override
-        onlyRole(PREDICATE_ROLE)
+        onlyStakeManager
     {
         _burn(_account, _amount);
     }
@@ -50,10 +47,16 @@ contract BnbX is IBnbX, ERC20Upgradeable, AccessControlUpgradeable {
         require(stakeManager != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
 
-        _revokeRole(PREDICATE_ROLE, stakeManager);
         stakeManager = _address;
-        _setupRole(PREDICATE_ROLE, _address);
 
         emit SetStakeManager(_address);
+    }
+
+    modifier onlyStakeManager() {
+        require(
+            msg.sender == stakeManager,
+            "Accessible only by StakeManager Contract"
+        );
+        _;
     }
 }
