@@ -491,7 +491,10 @@ contract StakeManager is
     }
 
     // TODO: remove this function on final contract deployment
-    function setInitialManager(address _address) external onlyManager {
+    function setInitialManager(address _address)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         require(manager == address(0), "Manager already initialized");
         require(_address != address(0), "zero address provided");
 
