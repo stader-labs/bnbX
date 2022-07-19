@@ -49,7 +49,7 @@ contract StakeManager is
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
 
-    address private manager; // move all the below vairables above during final contract deployment
+    address private manager; // TODO: move all the below variables above during final contract deployment
     address private proposedManager;
     uint256 public feeBps; // range {0-10_000}
 
@@ -418,14 +418,16 @@ contract StakeManager is
         emit ProposeManager(_address);
     }
 
-    function acceptNewManager(address _address) external override onlyManager {
-        require(proposedManager == _address, "Manager address mismatch");
-        require(_address != address(0), "zero address provided");
+    function acceptNewManager() external override {
+        require(
+            msg.sender == proposedManager,
+            "Accessible only by Proposed Manager"
+        );
 
         manager = proposedManager;
         proposedManager = address(0);
 
-        emit SetManager(_address);
+        emit SetManager(manager);
     }
 
     function setBotRole(address _address) external override onlyManager {
@@ -486,6 +488,16 @@ contract StakeManager is
         feeBps = _feeBps;
 
         emit SetFeeBps(_feeBps);
+    }
+
+    // TODO: remove this function on final contract deployment
+    function setInitialManager(address _address) external onlyManager {
+        require(manager == address(0), "Manager already initialized");
+        require(_address != address(0), "zero address provided");
+
+        manager = _address;
+
+        emit SetManager(_address);
     }
 
     ////////////////////////////////////////////////////////////
@@ -684,7 +696,7 @@ contract StakeManager is
     }
 
     modifier onlyManager() {
-        require(msg.sender == manager, "Accessible only through Manager");
+        require(msg.sender == manager, "Accessible only by Manager");
         _;
     }
 }

@@ -58,7 +58,7 @@ interface IStakeManager {
 
     function proposeNewManager(address _address) external;
 
-    function acceptNewManager(address _address) external;
+    function acceptNewManager() external;
 
     function setBotRole(address _address) external;
 
