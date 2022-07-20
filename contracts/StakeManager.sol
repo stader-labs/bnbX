@@ -52,6 +52,7 @@ contract StakeManager is
     address private manager; // TODO: move all the below variables above during final contract deployment
     address private proposedManager;
     uint256 public feeBps; // range {0-10_000}
+    mapping(uint256 => bool) public rewardsIdUsed;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -228,7 +229,7 @@ contract StakeManager is
      * @dev Allows bot to update the contract regarding the rewards
      * @param _amount - Amount of reward
      */
-    function addRestakingRewards(uint256 _amount)
+    function addRestakingRewards(uint256 _id, uint256 _amount)
         external
         override
         whenNotPaused
@@ -236,10 +237,12 @@ contract StakeManager is
     {
         require(_amount > 0, "No reward");
         require(depositsDelegated > 0, "No funds delegated");
+        require(!rewardsIdUsed[_id], "Rewards ID already Used");
 
         depositsDelegated += _amount;
+        rewardsIdUsed[_id] = true;
 
-        emit Redelegate(_amount);
+        emit Redelegate(_id, _amount);
     }
 
     ////////////////////////////////////////////////////////////
