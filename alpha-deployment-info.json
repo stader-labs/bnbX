@@ -3,7 +3,7 @@
   "bnbX_proxy": "0x996aD83BB72Ef0F9b925e2ba41F3e6516C0A0329",
   "bnbX_impl": "0xf8a85887907f804776Ea9764781bF3b8cd59Cf6F",
   "stake_manager_proxy": "0xcEB338ea4D23822416C70036698D2712e2BD6971",
-  "stake_manager_impl": "0x83E1Cae031be2cA770D8a9f74A4304b58C3eBF66",
+  "stake_manager_impl": "0xea46028037638cB44cb4C17985Ba7B21AF0AFbD9",
   "manager": "0x8e39FBBA48014E8a36b36dad183d2A00E9c750cC",
   "bcDepositWallet": "0xb0b7dcc2f574d59b7a983e531a8caf5ecf1e207e",
   "bot": "0xEc60396BCBC207478AD65dEc4788cEbA5470C235",
