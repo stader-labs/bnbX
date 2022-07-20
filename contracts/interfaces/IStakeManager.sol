@@ -23,10 +23,12 @@ interface IStakeManager {
 
     function initialize(
         address _bnbX,
+        address _admin,
         address _manager,
         address _tokenHub,
         address _bcDepositWallet,
-        address _bot
+        address _bot,
+        uint256 _feeBps
     ) external;
 
     function deposit() external payable;
@@ -40,7 +42,7 @@ interface IStakeManager {
 
     function completeDelegation(uint256 _uuid) external;
 
-    function addRestakingRewards(uint256 _amount) external;
+    function addRestakingRewards(uint256 _id, uint256 _amount) external;
 
     function requestWithdraw(uint256 _amountInBnbX) external;
 
@@ -54,6 +56,10 @@ interface IStakeManager {
 
     function completeUndelegation(uint256 _uuid) external payable;
 
+    function proposeNewManager(address _address) external;
+
+    function acceptNewManager() external;
+
     function setBotRole(address _address) external;
 
     function revokeBotRole(address _address) external;
@@ -65,12 +71,15 @@ interface IStakeManager {
     function setMinUndelegateThreshold(uint256 _minUndelegateThreshold)
         external;
 
+    function setFeeBps(uint256 _feeBps) external;
+
     function getTotalPooledBnb() external view returns (uint256);
 
     function getContracts()
         external
         view
         returns (
+            address _manager,
             address _bnbX,
             address _tokenHub,
             address _bcDepositWallet
@@ -114,9 +123,6 @@ interface IStakeManager {
 
     event Delegate(uint256 _uuid, uint256 _amount);
     event TransferOut(uint256 _amount);
-    event SetBotRole(address indexed _address);
-    event RevokeBotRole(address indexed _address);
-    event SetBCDepositWallet(address indexed _address);
     event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
     event ClaimWithdrawal(
         address indexed _account,
@@ -124,5 +130,13 @@ interface IStakeManager {
         uint256 _amount
     );
     event Undelegate(uint256 _uuid, uint256 _amount);
-    event Redelegate(uint256 _amount);
+    event Redelegate(uint256 _rewardsId, uint256 _amount);
+    event SetManager(address indexed _address);
+    event ProposeManager(address indexed _address);
+    event SetBotRole(address indexed _address);
+    event RevokeBotRole(address indexed _address);
+    event SetBCDepositWallet(address indexed _address);
+    event SetMinDelegateThreshold(uint256 _minDelegateThreshold);
+    event SetMinUndelegateThreshold(uint256 _minUndelegateThreshold);
+    event SetFeeBps(uint256 _feeBps);
 }

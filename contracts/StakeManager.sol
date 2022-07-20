@@ -49,6 +49,11 @@ contract StakeManager is
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
 
+    address private manager;
+    address private proposedManager;
+    uint256 public feeBps; // range {0-10_000}
+    mapping(uint256 => bool) public rewardsIdUsed;
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -56,38 +61,54 @@ contract StakeManager is
 
     /**
      * @param _bnbX - Address of BnbX Token on Binance Smart Chain
+     * @param _admin - Address of the admin
      * @param _manager - Address of the manager
      * @param _tokenHub - Address of the manager
      * @param _bcDepositWallet - Beck32 decoding of Address of deposit Bot Wallet on Beacon Chain with `0x` prefix
      * @param _bot - Address of the Bot
+     * @param _feeBps - Fee Basis Points
      */
     function initialize(
         address _bnbX,
+        address _admin,
         address _manager,
         address _tokenHub,
         address _bcDepositWallet,
-        address _bot
+        address _bot,
+        uint256 _feeBps
     ) external override initializer {
         __AccessControl_init();
         __Pausable_init();
 
         require(
             ((_bnbX != address(0)) &&
+                (_admin != address(0)) &&
                 (_manager != address(0)) &&
                 (_tokenHub != address(0)) &&
                 (_bcDepositWallet != address(0)) &&
                 (_bot != address(0))),
             "zero address provided"
         );
+        require(_feeBps <= 10000, "_feeBps must not exceed 10000 (100%)");
 
-        _setupRole(DEFAULT_ADMIN_ROLE, _manager);
+        _setRoleAdmin(BOT, DEFAULT_ADMIN_ROLE);
+        _setupRole(DEFAULT_ADMIN_ROLE, _admin);
         _setupRole(BOT, _bot);
 
+        manager = _manager;
         bnbX = _bnbX;
         tokenHub = _tokenHub;
         bcDepositWallet = _bcDepositWallet;
         minDelegateThreshold = 1e18;
         minUndelegateThreshold = 1e18;
+        feeBps = _feeBps;
+
+        emit SetManager(_manager);
+        emit SetBotRole(_bot);
+        emit SetBCDepositWallet(bcDepositWallet);
+        emit SetMinDelegateThreshold(minDelegateThreshold);
+        emit SetMinUndelegateThreshold(minUndelegateThreshold);
+        emit SetFeeBps(_feeBps);
     }
 
     ////////////////////////////////////////////////////////////
@@ -130,10 +151,7 @@ contract StakeManager is
         uint256 relayFeeReceived = msg.value;
         _amount = depositsInContract - (depositsInContract % TEN_DECIMALS);
 
-        require(
-            relayFeeReceived >= tokenHubRelayFee,
-            "Require More Relay Fee, Check getTokenHubRelayFee"
-        );
+        require(relayFeeReceived >= tokenHubRelayFee, "Insufficient RelayFee");
         require(_amount >= minDelegateThreshold, "Insufficient Deposit Amount");
 
         _uuid = nextDelegateUUID++; // post-increment : assigns the current value first and then increments
@@ -156,14 +174,11 @@ contract StakeManager is
         payable
         override
         whenNotPaused
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyManager
     {
         uint256 tokenHubRelayFee = getTokenHubRelayFee();
         uint256 relayFeeReceived = msg.value;
-        require(
-            relayFeeReceived >= tokenHubRelayFee,
-            "Require More Relay Fee, Check getTokenHubRelayFee"
-        );
+        require(relayFeeReceived >= tokenHubRelayFee, "Insufficient RelayFee");
 
         BotDelegateRequest
             storage botDelegateRequest = uuidToBotDelegateRequestMap[_uuid];
@@ -214,7 +229,7 @@ contract StakeManager is
      * @dev Allows bot to update the contract regarding the rewards
      * @param _amount - Amount of reward
      */
-    function addRestakingRewards(uint256 _amount)
+    function addRestakingRewards(uint256 _id, uint256 _amount)
         external
         override
         whenNotPaused
@@ -222,10 +237,12 @@ contract StakeManager is
     {
         require(_amount > 0, "No reward");
         require(depositsDelegated > 0, "No funds delegated");
+        require(!rewardsIdUsed[_id], "Rewards ID already Used");
 
         depositsDelegated += _amount;
+        rewardsIdUsed[_id] = true;
 
-        emit Redelegate(_amount);
+        emit Redelegate(_id, _amount);
     }
 
     ////////////////////////////////////////////////////////////
@@ -389,11 +406,28 @@ contract StakeManager is
     /////                                                    ///
     ////////////////////////////////////////////////////////////
 
-    function setBotRole(address _address)
-        external
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function proposeNewManager(address _address) external override onlyManager {
+        require(manager != _address, "Old address == new address");
+        require(_address != address(0), "zero address provided");
+
+        proposedManager = _address;
+
+        emit ProposeManager(_address);
+    }
+
+    function acceptNewManager() external override {
+        require(
+            msg.sender == proposedManager,
+            "Accessible only by Proposed Manager"
+        );
+
+        manager = proposedManager;
+        proposedManager = address(0);
+
+        emit SetManager(manager);
+    }
+
+    function setBotRole(address _address) external override onlyManager {
         require(_address != address(0), "zero address provided");
 
         _setupRole(BOT, _address);
@@ -401,11 +435,7 @@ contract StakeManager is
         emit SetBotRole(_address);
     }
 
-    function revokeBotRole(address _address)
-        external
-        override
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
+    function revokeBotRole(address _address) external override onlyManager {
         require(_address != address(0), "zero address provided");
 
         _revokeRole(BOT, _address);
@@ -417,7 +447,7 @@ contract StakeManager is
     function setBCDepositWallet(address _address)
         external
         override
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyManager
     {
         require(bcDepositWallet != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
@@ -430,19 +460,35 @@ contract StakeManager is
     function setMinDelegateThreshold(uint256 _minDelegateThreshold)
         external
         override
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyManager
     {
         require(_minDelegateThreshold > 0, "Invalid Threshold");
         minDelegateThreshold = _minDelegateThreshold;
+
+        emit SetMinDelegateThreshold(_minDelegateThreshold);
     }
 
     function setMinUndelegateThreshold(uint256 _minUndelegateThreshold)
         external
         override
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyManager
     {
         require(_minUndelegateThreshold > 0, "Invalid Threshold");
         minUndelegateThreshold = _minUndelegateThreshold;
+
+        emit SetMinUndelegateThreshold(_minUndelegateThreshold);
+    }
+
+    function setFeeBps(uint256 _feeBps)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(_feeBps <= 10000, "_feeBps must not exceed 10000 (100%)");
+
+        feeBps = _feeBps;
+
+        emit SetFeeBps(_feeBps);
     }
 
     ////////////////////////////////////////////////////////////
@@ -460,11 +506,13 @@ contract StakeManager is
         view
         override
         returns (
+            address _manager,
             address _bnbX,
             address _tokenHub,
             address _bcDepositWallet
         )
     {
+        _manager = manager;
         _bnbX = bnbX;
         _tokenHub = tokenHub;
         _bcDepositWallet = bcDepositWallet;
@@ -636,5 +684,10 @@ contract StakeManager is
      */
     function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         paused() ? _unpause() : _pause();
+    }
+
+    modifier onlyManager() {
+        require(msg.sender == manager, "Accessible only by Manager");
+        _;
     }
 }

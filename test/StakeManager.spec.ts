@@ -6,6 +6,7 @@ import { BnbX, TokenHubMock, StakeManager, IBnbX } from "../typechain";
 
 describe("Stake Manager Contract", () => {
   let deployer: SignerWithAddress;
+  let admin: SignerWithAddress;
   let manager: SignerWithAddress;
   let users: SignerWithAddress[];
   let bcDepositWallet: SignerWithAddress;
@@ -39,6 +40,7 @@ describe("Stake Manager Contract", () => {
     user = users[0];
     bcDepositWallet = users[1];
     bot = users[2];
+    admin = users[3];
 
     bnbX = (await upgrades.deployProxy(
       await ethers.getContractFactory("BnbX"),
@@ -55,6 +57,7 @@ describe("Stake Manager Contract", () => {
       await ethers.getContractFactory("StakeManager"),
       [
         bnbX.address,
+        admin.address,
         manager.address,
         tokenHub.address,
         bcDepositWallet.address,
@@ -517,6 +520,26 @@ describe("Stake Manager Contract", () => {
 
       expect(currentValue).to.be.eq(1);
       expect(incrementedValue).to.be.eq(2);
+    });
+
+    it("Manager sets new Manager", async () => {
+      const mStakeManager: StakeManager = stakeManager.connect(manager);
+
+      await expect(uStakeManager.setManager(bot.address)).to.be.revertedWith(
+        "Accessible only through Manager"
+      );
+
+      await expect(mStakeManager.setManager(user.address))
+        .emit(stakeManager, "SetManager")
+        .withArgs(user.address);
+
+      await expect(mStakeManager.setManager(bot.address)).to.be.revertedWith(
+        "Accessible only through Manager"
+      );
+
+      await expect(uStakeManager.setManager(manager.address))
+        .emit(stakeManager, "SetManager")
+        .withArgs(manager.address);
     });
   });
 });

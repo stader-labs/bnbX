@@ -20,8 +20,8 @@ import {
 
 task("deployBnbXProxy", "Deploy BnbX Proxy only")
   .addPositionalParam("manager")
-  .setAction(async ({ manager }, hre: HardhatRuntimeEnvironment) => {
-    await deployProxy(hre, "BnbX", manager);
+  .setAction(async ({ admin }, hre: HardhatRuntimeEnvironment) => {
+    await deployProxy(hre, "BnbX", admin);
   });
 
 task("deployBnbXImpl", "Deploy BnbX Implementation only").setAction(
@@ -32,23 +32,27 @@ task("deployBnbXImpl", "Deploy BnbX Implementation only").setAction(
 
 task("deployStakeManagerProxy", "Deploy StakeManager Proxy only")
   .addPositionalParam("bnbX")
+  .addPositionalParam("admin")
   .addPositionalParam("manager")
   .addPositionalParam("tokenHub")
   .addPositionalParam("bcDepositWallet")
   .addPositionalParam("bot")
+  .addPositionalParam("feeBps")
   .setAction(
     async (
-      { bnbX, manager, tokenHub, bcDepositWallet, bot },
+      { bnbX, admin, manager, tokenHub, bcDepositWallet, bot, feeBps },
       hre: HardhatRuntimeEnvironment
     ) => {
       await deployProxy(
         hre,
         "StakeManager",
         bnbX,
+        admin,
         manager,
         tokenHub,
         bcDepositWallet,
-        bot
+        bot,
+        feeBps
       );
     }
   );
@@ -66,6 +70,12 @@ const config: HardhatUserConfig = {
     compilers: [
       {
         version: "0.8.4",
+        settings: {
+          optimizer: {
+            enabled: true,
+            runs: 200,
+          },
+        },
       },
     ],
   },
