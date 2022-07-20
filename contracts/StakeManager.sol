@@ -49,7 +49,7 @@ contract StakeManager is
     uint256 public constant TEN_DECIMALS = 1e10;
     bytes32 public constant BOT = keccak256("BOT");
 
-    address private manager; // TODO: move all the below variables above during final contract deployment
+    address private manager;
     address private proposedManager;
     uint256 public feeBps; // range {0-10_000}
     mapping(uint256 => bool) public rewardsIdUsed;
