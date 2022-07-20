@@ -476,25 +476,16 @@ contract StakeManager is
         emit SetMinUndelegateThreshold(_minUndelegateThreshold);
     }
 
-    function setFeeBps(uint256 _feeBps) external override onlyManager {
+    function setFeeBps(uint256 _feeBps)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
         require(_feeBps <= 10000, "_feeBps must not exceed 10000 (100%)");
 
         feeBps = _feeBps;
 
         emit SetFeeBps(_feeBps);
-    }
-
-    // TODO: remove this function on final contract deployment
-    function setInitialManager(address _address)
-        external
-        onlyRole(DEFAULT_ADMIN_ROLE)
-    {
-        require(manager == address(0), "Manager already initialized");
-        require(_address != address(0), "zero address provided");
-
-        manager = _address;
-
-        emit SetManager(_address);
     }
 
     ////////////////////////////////////////////////////////////
