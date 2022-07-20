@@ -488,6 +488,19 @@ contract StakeManager is
         emit SetFeeBps(_feeBps);
     }
 
+    // TODO: remove this function on final contract deployment
+    function setInitialManager(address _address)
+        external
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(manager == address(0), "Manager already initialized");
+        require(_address != address(0), "zero address provided");
+
+        manager = _address;
+
+        emit SetManager(_address);
+    }
+
     ////////////////////////////////////////////////////////////
     /////                                                    ///
     /////                 ***Getters***                      ///
