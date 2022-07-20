@@ -42,7 +42,7 @@ interface IStakeManager {
 
     function completeDelegation(uint256 _uuid) external;
 
-    function addRestakingRewards(uint256 _amount) external;
+    function addRestakingRewards(uint256 _id, uint256 _amount) external;
 
     function requestWithdraw(uint256 _amountInBnbX) external;
 
@@ -130,7 +130,7 @@ interface IStakeManager {
         uint256 _amount
     );
     event Undelegate(uint256 _uuid, uint256 _amount);
-    event Redelegate(uint256 _amount);
+    event Redelegate(uint256 _rewardsId, uint256 _amount);
     event SetManager(address indexed _address);
     event ProposeManager(address indexed _address);
     event SetBotRole(address indexed _address);
