@@ -629,13 +629,12 @@ contract StakeManager is
     function _tokenHubTransferOut(uint256 _amount, uint256 _relayFee) private {
         // have experimented with 13 hours and it worked
         uint64 expireTime = uint64(block.timestamp + 1 hours);
-        ITokenHub(tokenHub).transferOut{value: (_amount + _relayFee)}(
-            address(0),
-            bcDepositWallet,
-            _amount,
-            expireTime
-        );
 
+        bool isTransferred = ITokenHub(tokenHub).transferOut{
+            value: (_amount + _relayFee)
+        }(address(0), bcDepositWallet, _amount, expireTime);
+
+        require(isTransferred, "TokenHub TransferOut Failed");
         emit TransferOut(_amount);
     }
 
