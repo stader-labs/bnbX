@@ -1,6 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { HardhatUserConfig, task } from "hardhat/config";
-import { deployDirect, deployProxy } from "./scripts/tasks";
+import { deployDirect, deployProxy, upgradeProxy } from "./scripts/tasks";
 
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
@@ -19,9 +19,15 @@ import {
 } from "./environment";
 
 task("deployBnbXProxy", "Deploy BnbX Proxy only")
-  .addPositionalParam("manager")
+  .addPositionalParam("admin")
   .setAction(async ({ admin }, hre: HardhatRuntimeEnvironment) => {
     await deployProxy(hre, "BnbX", admin);
+  });
+
+task("upgradeBnbXProxy", "Upgrade BnbX Proxy")
+  .addPositionalParam("proxyAddress")
+  .setAction(async ({ proxyAddress }, hre: HardhatRuntimeEnvironment) => {
+    await upgradeProxy(hre, "BnbX", proxyAddress);
   });
 
 task("deployBnbXImpl", "Deploy BnbX Implementation only").setAction(
@@ -56,6 +62,12 @@ task("deployStakeManagerProxy", "Deploy StakeManager Proxy only")
       );
     }
   );
+
+task("upgradeStakeManagerProxy", "Upgrade StakeManager Proxy")
+  .addPositionalParam("proxyAddress")
+  .setAction(async ({ proxyAddress }, hre: HardhatRuntimeEnvironment) => {
+    await upgradeProxy(hre, "StakeManager", proxyAddress);
+  });
 
 task(
   "deployStakeManagerImpl",

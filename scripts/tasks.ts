@@ -31,5 +31,28 @@ export async function deployProxy(
 
   await contract.deployed();
 
+  const contractImplAddress =
+    await hre.upgrades.erc1967.getImplementationAddress(contract.address);
+
   console.log(`Proxy ${contractName} deployed to:`, contract.address);
+  console.log(`Impl ${contractName} deployed to:`, contractImplAddress);
+}
+
+export async function upgradeProxy(
+  hre: HardhatRuntimeEnvironment,
+  contractName: string,
+  proxyAddress: string
+) {
+  const Contract = await hre.ethers.getContractFactory(contractName);
+
+  console.log(`Upgrading ${contractName} with proxy at: ${proxyAddress}`);
+
+  const contract = await hre.upgrades.upgradeProxy(proxyAddress, Contract);
+  await contract.deployed();
+
+  const contractImplAddress =
+    await hre.upgrades.erc1967.getImplementationAddress(proxyAddress);
+
+  console.log(`Proxy ${contractName} deployed to:`, contract.address);
+  console.log(`Impl ${contractName} deployed to:`, contractImplAddress);
 }
