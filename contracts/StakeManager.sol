@@ -393,7 +393,10 @@ contract StakeManager is
         );
 
         uint256 amount = msg.value;
-        require(amount == botUndelegateRequest.amount, "Insufficient Fund");
+        require(
+            amount == botUndelegateRequest.amount,
+            "Send Exact Amount of Fund"
+        );
         botUndelegateRequest.endTime = block.timestamp;
         totalClaimableBnb += botUndelegateRequest.amount;
 
