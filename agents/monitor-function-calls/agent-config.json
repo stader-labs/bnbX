@@ -1,0 +1,17 @@
+{
+  "developerAbbreviation": "BT",
+  "protocolName": "BNBx Stader",
+  "protocolAbbreviation": "BNBx",
+  "contracts": {
+    "stakeManager": {
+      "address": "0x7276241a669489E4BBB76f63d2A43Bfe63080F2F",
+      "abiFile": "StakeManager.json",
+      "functions": {
+        "deposit": {
+          "type": "Info",
+          "severity": "Info"
+        }
+      }
+    }
+  }
+}
