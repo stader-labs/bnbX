@@ -1,15 +1,18 @@
 const {
-  Finding, FindingSeverity, FindingType, ethers,
-} = require('forta-agent');
+  Finding,
+  FindingSeverity,
+  FindingType,
+  ethers,
+} = require("forta-agent");
 
-const config = require('../agent-config.json');
+const config = require("../agent-config.json");
 
 const {
   parseExpression,
   checkLogAgainstExpression,
   getAbi,
   extractFunctionArgs,
-} = require('./utils');
+} = require("./utils");
 
 // set up a variable to hold initialization data used in the handler
 const initializeData = {};
@@ -25,7 +28,7 @@ function createAlert(
   protocolName,
   protocolAbbreviation,
   developerAbbreviation,
-  expression,
+  expression
 ) {
   const functionArgs = extractFunctionArgs(args);
 
@@ -95,25 +98,24 @@ function provideInitialize(data) {
 
       return contract;
     });
-  /* eslint-enable no-param-reassign */
+    /* eslint-enable no-param-reassign */
   };
 }
 
 function provideHandleTransaction(data) {
   return async function handleTransaction(txEvent) {
     const {
-      contracts, developerAbbreviation, protocolName, protocolAbbreviation,
+      contracts,
+      developerAbbreviation,
+      protocolName,
+      protocolAbbreviation,
     } = data;
 
     const findings = [];
 
     // iterate over all of the contracts from the configuration file
     contracts.forEach((contract) => {
-      const {
-        name,
-        address,
-        functionSignatures,
-      } = contract;
+      const { name, address, functionSignatures } = contract;
 
       // iterate over all function signatures
       functionSignatures.forEach((entry) => {
@@ -142,18 +144,20 @@ function provideHandleTransaction(data) {
           }
 
           // create a finding
-          findings.push(createAlert(
-            functionName,
-            name,
-            address,
-            functionType,
-            functionSeverity,
-            parsedFunction.args,
-            protocolName,
-            protocolAbbreviation,
-            developerAbbreviation,
-            expression,
-          ));
+          findings.push(
+            createAlert(
+              functionName,
+              name,
+              address,
+              functionType,
+              functionSeverity,
+              parsedFunction.args,
+              protocolName,
+              protocolAbbreviation,
+              developerAbbreviation,
+              expression
+            )
+          );
         });
       });
     });

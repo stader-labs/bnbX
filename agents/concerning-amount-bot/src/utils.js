@@ -1,9 +1,9 @@
-const BigNumber = require('bignumber.js');
-const { ethers } = require('forta-agent');
+const BigNumber = require("bignumber.js");
+const { ethers } = require("forta-agent");
 
 // create a fake function name
 function getRandomCharacterString(numCharacters) {
-  let result = '';
+  let result = "";
   let charCode;
   for (let i = 0; i < numCharacters; i++) {
     charCode = Math.floor(Math.random() * 52);
@@ -23,14 +23,14 @@ function isAddress(valueString) {
 
 function isNumeric(valueString) {
   const result = new BigNumber(valueString);
-  return !(result.isNaN());
+  return !result.isNaN();
 }
 
 function addressComparison(variable, operator, operand) {
   switch (operator) {
-    case '===':
+    case "===":
       return variable.toLowerCase() === operand.toLowerCase();
-    case '!==':
+    case "!==":
       return variable.toLowerCase() !== operand.toLowerCase();
     default:
       throw new Error(`Address operator ${operator} not supported`);
@@ -39,9 +39,9 @@ function addressComparison(variable, operator, operand) {
 
 function booleanComparison(variable, operator, operand) {
   switch (operator) {
-    case '===':
+    case "===":
       return variable === operand;
-    case '!==':
+    case "!==":
       return variable !== operand;
     default:
       throw new Error(`Boolean operator ${operator} not supported`);
@@ -50,17 +50,17 @@ function booleanComparison(variable, operator, operand) {
 
 function bigNumberComparison(variable, operator, operand) {
   switch (operator) {
-    case '===':
+    case "===":
       return variable.eq(operand);
-    case '!==':
-      return !(variable.eq(operand));
-    case '>=':
+    case "!==":
+      return !variable.eq(operand);
+    case ">=":
       return variable.gte(operand);
-    case '>':
+    case ">":
       return variable.gt(operand);
-    case '<=':
+    case "<=":
       return variable.lte(operand);
-    case '<':
+    case "<":
       return variable.lt(operand);
     default:
       throw new Error(`BigNumber operator ${operator} no supported`);
@@ -69,11 +69,15 @@ function bigNumberComparison(variable, operator, operand) {
 
 function parseExpression(expression) {
   // Split the expression on spaces, discarding extra spaces
-  const parts = expression.split(/(\s+)/).filter((str) => str.trim().length > 0);
+  const parts = expression
+    .split(/(\s+)/)
+    .filter((str) => str.trim().length > 0);
 
   // Only support variable, operator, comparisonValue
   if (parts.length !== 3) {
-    throw new Error('Expression must contain three terms: variable operator value');
+    throw new Error(
+      "Expression must contain three terms: variable operator value"
+    );
   }
 
   const [variableName, operator, value] = parts;
@@ -81,8 +85,10 @@ function parseExpression(expression) {
   // Address
   if (ethers.utils.isHexString(value, 20)) {
     // Check the operator
-    if (['===', '!=='].indexOf(operator) === -1) {
-      throw new Error(`Unsupported address operator "${operator}": must be "===" or "!=="`);
+    if (["===", "!=="].indexOf(operator) === -1) {
+      throw new Error(
+        `Unsupported address operator "${operator}": must be "===" or "!=="`
+      );
     }
     return {
       variableName,
@@ -92,23 +98,27 @@ function parseExpression(expression) {
     };
   }
   // Boolean
-  if ((value.toLowerCase() === 'true') || (value.toLowerCase() === 'false')) {
+  if (value.toLowerCase() === "true" || value.toLowerCase() === "false") {
     // Check the operator
-    if (['===', '!=='].indexOf(operator) === -1) {
-      throw new Error(`Unsupported Boolean operator "${operator}": must be "===" or "!=="`);
+    if (["===", "!=="].indexOf(operator) === -1) {
+      throw new Error(
+        `Unsupported Boolean operator "${operator}": must be "===" or "!=="`
+      );
     }
     return {
       variableName,
       operator,
       comparisonFunction: booleanComparison,
-      value: value.toLowerCase() === 'true',
+      value: value.toLowerCase() === "true",
     };
   }
   // Number
   if (isNumeric(value)) {
     // Check the operator
-    if (['<', '<=', '===', '!==', '>=', '>'].indexOf(operator) === -1) {
-      throw new Error(`Unsupported BN operator "${operator}": must be <, <=, ===, !==, >=, or >`);
+    if (["<", "<=", "===", "!==", ">=", ">"].indexOf(operator) === -1) {
+      throw new Error(
+        `Unsupported BN operator "${operator}": must be <, <=, ===, !==, >=, or >`
+      );
     }
     return {
       variableName,
@@ -124,14 +134,19 @@ function parseExpression(expression) {
 
 function checkLogAgainstExpression(expressionObject, log) {
   const {
-    variableName: argName, operator, comparisonFunction, value: operand,
+    variableName: argName,
+    operator,
+    comparisonFunction,
+    value: operand,
   } = expressionObject;
 
   if (log.args[argName] === undefined) {
     // passed-in argument name from config file was not found in the log, which means that the
     // user's argument name does not coincide with the names of the event ABI
     const logArgNames = Object.keys(log.args);
-    throw new Error(`Argument name ${argName} does not match any of the arguments found in an ${log.name} log: ${logArgNames}`);
+    throw new Error(
+      `Argument name ${argName} does not match any of the arguments found in an ${log.name} log: ${logArgNames}`
+    );
   }
 
   // convert the value of argName and the operand value into their corresponding types
@@ -149,7 +164,7 @@ function checkLogAgainstExpression(expressionObject, log) {
 
 function getAbi(abiName) {
   // eslint-disable-next-line global-require,import/no-dynamic-require
-  const { abi } = require(`../abi/${abiName}`);
+  const { abi } = require(`../../abi/${abiName}`);
   return abi;
 }
 

@@ -1,9 +1,9 @@
 {
-  "name": "forta-{developerAbbreviation}-{protocolAbbreviation}-function-calls",
-  "version": "0.0.2",
-  "description": "Forta Agent template for monitoring function calls from {protocolName} contracts",
+  "name": "bnbx-concerning-amount-bot",
+  "version": "0.0.1",
+  "description": "Alerts on substantial amount of BNBx mint and User unstake request",
   "chainIds": [
-    56
+    97
   ],
   "scripts": {
     "start": "npm run start:dev",
