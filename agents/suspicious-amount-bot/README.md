@@ -1,0 +1,27 @@
+# BNBx Suspicious Amount Bot
+
+## Description
+
+This bot alerts when
+
+- BNBx is minted in large amount
+- User unstakes large amount of BNBx
+
+## Supported Chains
+
+- BSC
+
+## Alerts
+
+- BNBx-1
+
+  - Fired when BNBx is minted in large amount (50 BNBx)
+  - Severity is set to "High"
+  - Type is set to "Suspicious"
+  - metadata: to, value
+
+- BNBx-2
+  - Fired when User unstakes large amount of BNBx (10 BNBx)
+  - Severity is set to "High"
+  - Type is set to "Suspicious"
+  - metadata: account, amountInBnbX,
