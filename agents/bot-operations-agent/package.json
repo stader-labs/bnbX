@@ -1,7 +1,7 @@
 {
-  "name": "bnbx-suspicious-amount-bot",
+  "name": "bot-operations-agent",
   "version": "0.0.1",
-  "description": "Alerts on substantial amount of BNBx mint and User unstake request",
+  "description": "Alerts on Off Chain Bot Delays and Failures",
   "chainIds": [
     56
   ],

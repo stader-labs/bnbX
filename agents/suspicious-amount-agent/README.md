@@ -1,8 +1,8 @@
-# BNBx Suspicious Amount Bot
+# BNBx Suspicious Amount Agent
 
 ## Description
 
-This bot alerts when
+This agent alerts when
 
 - BNBx is minted in large amount
 - User unstakes large amount of BNBx
