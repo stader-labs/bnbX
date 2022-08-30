@@ -9,6 +9,8 @@ import {
 import {
   COMPLETE_DELEGATION_DELAY,
   COMPLETE_DELEGATION_FN,
+  COMPLETE_UNDELEGATION_DELAY,
+  COMPLETE_UNDELEGATION_FN,
   protocol,
   REWARD_CHANGE_BPS,
   REWARD_DELAY_HOURS,
@@ -16,7 +18,11 @@ import {
   STAKE_MANAGER,
   START_DELEGATION_DELAY,
   START_DELEGATION_FN,
+  START_UNDELEGATION_DELAY,
+  START_UNDELEGATION_FN,
   TOTAL_BPS,
+  UNDELEGATION_UPDATE_DELAY,
+  UNDELEGATION_UPDATE_FN,
 } from "./constants";
 
 import { getHours } from "./utils";
@@ -28,6 +34,10 @@ let dailyRewardsFailed: boolean,
 let lastStartDelegationTime: Date, startDelegationFailed: boolean;
 let lastCompleteDelegationTime: Date, completeDelegationFailed: boolean;
 
+let lastStartUndelegationTime: Date, startUndelegationFailed: boolean;
+let lastUndelegationUpdateTime: Date, undelegationUpdateFailed: boolean;
+let lastCompleteUndelegationTime: Date, completeUndelegationFailed: boolean;
+
 const handleTransaction: HandleTransaction = async (
   txEvent: TransactionEvent
 ) => {
@@ -36,6 +46,9 @@ const handleTransaction: HandleTransaction = async (
       handleRewardTransaction(txEvent),
       handleStartDelegationTransaction(txEvent),
       handleCompleteDelegationTransaction(txEvent),
+      handleStartUndelegationTransaction(txEvent),
+      handleUndelegationUpdateTransaction(txEvent),
+      handleCompleteUndelegationTransaction(txEvent),
     ])
   ).flat();
 
@@ -182,7 +195,7 @@ const handleCompleteDelegationTransaction: HandleTransaction = async (
     findings.push(
       Finding.fromObject({
         name: "Complete Delegation Failed",
-        description: `Complete Delegation not invoked since ${COMPLETE_DELEGATION_DELAY} Hours of last Start Delegation`,
+        description: `Complete Delegation not invoked since ${COMPLETE_DELEGATION_DELAY} Hours past last Start Delegation`,
         alertId: "BNBx-8",
         protocol: protocol,
         severity: FindingSeverity.High,
@@ -194,6 +207,152 @@ const handleCompleteDelegationTransaction: HandleTransaction = async (
       })
     );
     completeDelegationFailed = true;
+  }
+
+  return findings;
+};
+
+const handleStartUndelegationTransaction: HandleTransaction = async (
+  txEvent: TransactionEvent
+) => {
+  const findings: Finding[] = [];
+  const startUndelegationInvocations = txEvent.filterFunction(
+    START_UNDELEGATION_FN,
+    STAKE_MANAGER
+  );
+
+  if (startUndelegationInvocations.length) {
+    lastStartUndelegationTime = new Date();
+    startUndelegationFailed = false;
+    return findings;
+  }
+
+  if (!lastStartUndelegationTime) return findings;
+
+  if (startUndelegationFailed) return findings;
+
+  const currentTime = new Date();
+  const diff = currentTime.getTime() - lastStartUndelegationTime.getTime();
+  const diffHours = getHours(diff);
+  if (diffHours > START_UNDELEGATION_DELAY) {
+    findings.push(
+      Finding.fromObject({
+        name: "Start Undelegation Failed",
+        description: `Start Undelegation not invoked since ${START_UNDELEGATION_DELAY} Hours`,
+        alertId: "BNBx-9",
+        protocol: protocol,
+        severity: FindingSeverity.High,
+        type: FindingType.Info,
+        metadata: {
+          lastStartUndelegationTime: lastStartUndelegationTime.toUTCString(),
+        },
+      })
+    );
+    startUndelegationFailed = true;
+  }
+
+  return findings;
+};
+
+const handleUndelegationUpdateTransaction: HandleTransaction = async (
+  txEvent: TransactionEvent
+) => {
+  const findings: Finding[] = [];
+  const UndelegationUpdateInvocations = txEvent.filterFunction(
+    UNDELEGATION_UPDATE_FN,
+    STAKE_MANAGER
+  );
+
+  if (UndelegationUpdateInvocations.length) {
+    lastUndelegationUpdateTime = new Date();
+    undelegationUpdateFailed = false;
+    return findings;
+  }
+
+  if (!lastStartUndelegationTime || !lastUndelegationUpdateTime) {
+    return findings;
+  }
+
+  if (startUndelegationFailed || undelegationUpdateFailed) return findings;
+
+  const currentTime = new Date();
+  const diff = currentTime.getTime() - lastStartUndelegationTime.getTime();
+  const undelegationUpdateDiff =
+    currentTime.getTime() - lastUndelegationUpdateTime.getTime();
+
+  const diffHours = getHours(diff);
+  const undelegationUpdateDiffHours = getHours(undelegationUpdateDiff);
+
+  if (
+    diffHours > UNDELEGATION_UPDATE_DELAY &&
+    undelegationUpdateDiffHours > diffHours
+  ) {
+    findings.push(
+      Finding.fromObject({
+        name: "Undelegation Update Failed",
+        description: `Undelegation not invoked at Beacon Chain since ${UNDELEGATION_UPDATE_DELAY} Hours past last Start UnDelegation`,
+        alertId: "BNBx-10",
+        protocol: protocol,
+        severity: FindingSeverity.High,
+        type: FindingType.Info,
+        metadata: {
+          lastStartUndelegationTime: lastStartUndelegationTime.toUTCString(),
+          lastUndelegationUpdateTime: lastUndelegationUpdateTime.toUTCString(),
+        },
+      })
+    );
+    undelegationUpdateFailed = true;
+  }
+
+  return findings;
+};
+
+const handleCompleteUndelegationTransaction: HandleTransaction = async (
+  txEvent: TransactionEvent
+) => {
+  const findings: Finding[] = [];
+  const completeUndelegationInvocations = txEvent.filterFunction(
+    COMPLETE_UNDELEGATION_FN,
+    STAKE_MANAGER
+  );
+
+  if (completeUndelegationInvocations.length) {
+    lastCompleteUndelegationTime = new Date();
+    completeUndelegationFailed = false;
+    return findings;
+  }
+
+  if (!lastStartUndelegationTime || !lastCompleteUndelegationTime) {
+    return findings;
+  }
+
+  if (startUndelegationFailed || completeUndelegationFailed) return findings;
+
+  const currentTime = new Date();
+  const diff = currentTime.getTime() - lastStartUndelegationTime.getTime();
+  const compDiff =
+    currentTime.getTime() - lastCompleteUndelegationTime.getTime();
+
+  const diffHours = getHours(diff);
+  const compDiffHours = getHours(compDiff);
+
+  if (diffHours > COMPLETE_UNDELEGATION_DELAY && compDiffHours > diffHours) {
+    findings.push(
+      Finding.fromObject({
+        name: "Complete Undelegation Failed",
+        description: `Complete Undelegation not invoked since ${COMPLETE_UNDELEGATION_DELAY} Hours past last Start Undelegation`,
+        alertId: "BNBx-11",
+        protocol: protocol,
+        severity: FindingSeverity.High,
+        type: FindingType.Info,
+        metadata: {
+          lastStartUndelegationTime: lastStartUndelegationTime.toUTCString(),
+          lastCompleteUndelegationTime:
+            lastCompleteUndelegationTime.toUTCString(),
+        },
+      })
+    );
+    completeUndelegationFailed = true;
   }
 
   return findings;
