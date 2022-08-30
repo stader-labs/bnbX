@@ -9,6 +9,7 @@ import {
 import {
   MAX_REWARD_THRESHOLD,
   MIN_REWARD_THRESHOLD,
+  protocol,
   REWARD_EVENT,
   STAKE_MANAGER,
 } from "./constants";
@@ -33,11 +34,12 @@ const handleTransaction: HandleTransaction = async (
           name: "Low BNBx Reward",
           description: `Low amount of BNBx Reward Received: ${normalizedValue}`,
           alertId: "BNBx-3",
+          protocol: protocol,
           severity: FindingSeverity.High,
           type: FindingType.Info,
           metadata: {
-            _rewardsId,
-            _amount,
+            rewardsId: _rewardsId.toString(),
+            amount: _amount.toString(),
           },
         })
       );
@@ -49,6 +51,7 @@ const handleTransaction: HandleTransaction = async (
           name: "High BNBx Reward",
           description: `High amount of BNBx Reward Received: ${normalizedValue}`,
           alertId: "BNBx-4",
+          protocol: "BNBx Stader",
           severity: FindingSeverity.High,
           type: FindingType.Info,
           metadata: {

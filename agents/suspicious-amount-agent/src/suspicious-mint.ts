@@ -6,7 +6,12 @@ import {
   HandleTransaction,
   TransactionEvent,
 } from "forta-agent";
-import { BEP20_TRANSFER_EVENT, BNBx, BNBX_MINT_THRESHOLD } from "./constants";
+import {
+  BEP20_TRANSFER_EVENT,
+  BNBx,
+  BNBX_MINT_THRESHOLD,
+  protocol,
+} from "./constants";
 
 const handleTransaction: HandleTransaction = async (
   txEvent: TransactionEvent
@@ -33,11 +38,12 @@ const handleTransaction: HandleTransaction = async (
           name: "High BNBx Mint",
           description: `High amount of BNBx minted: ${normalizedValue}`,
           alertId: "BNBx-1",
+          protocol: protocol,
           severity: FindingSeverity.High,
           type: FindingType.Info,
           metadata: {
             to,
-            value,
+            value: value.toString(),
           },
         })
       );

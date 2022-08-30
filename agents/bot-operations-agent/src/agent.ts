@@ -1,82 +1,101 @@
+import { BigNumber } from "ethers";
 import {
-  BlockEvent,
   Finding,
-  HandleBlock,
-  // HandleTransaction,
-  // TransactionEvent,
   FindingSeverity,
   FindingType,
+  HandleTransaction,
+  TransactionEvent,
 } from "forta-agent";
+import {
+  protocol,
+  REWARD_CHANGE_PCT_THRESHOLD,
+  REWARD_DELAY_HOURS,
+  REWARD_EVENT,
+  STAKE_MANAGER,
+} from "./constants";
 
-import { someArray } from "./constants";
+import { getHours } from "./utils";
 
-// export const ERC20_TRANSFER_EVENT =
-//   "event Transfer(address indexed from, address indexed to, uint256 value)";
-// export const TETHER_ADDRESS = "0xdAC17F958D2ee523a2206206994597C13D831ec7";
-// export const TETHER_DECIMALS = 6;
-// let findingsCount = 0;
+let dailyRewardsAlerted: boolean,
+  lastRewardsTime: Date,
+  lastRewardAmount: BigNumber;
 
-// const handleTransaction: HandleTransaction = async (
-//   txEvent: TransactionEvent
-// ) => {
-//   const findings: Finding[] = [];
+const handleTransaction: HandleTransaction = async (
+  txEvent: TransactionEvent
+) => {
+  const findings: Finding[] = (
+    await Promise.all([handleRewardTransaction(txEvent)])
+  ).flat();
 
-//   // limiting this agent to emit only 5 findings so that the alert feed is not spammed
-//   if (findingsCount >= 5) return findings;
+  return findings;
+};
 
-//   // filter the transaction logs for Tether transfer events
-//   const tetherTransferEvents = txEvent.filterLog(
-//     ERC20_TRANSFER_EVENT,
-//     TETHER_ADDRESS
-//   );
-
-//   tetherTransferEvents.forEach((transferEvent) => {
-//     // extract transfer event arguments
-//     const { to, from, value } = transferEvent.args;
-//     // shift decimals of transfer value
-//     const normalizedValue = value.div(10 ** TETHER_DECIMALS);
-
-//     // if more than 10,000 Tether were transferred, report it
-//     if (normalizedValue.gt(10000)) {
-//       findings.push(
-//         Finding.fromObject({
-//           name: "High Tether Transfer",
-//           description: `High amount of USDT transferred: ${normalizedValue}`,
-//           alertId: "FORTA-1",
-//           severity: FindingSeverity.Low,
-//           type: FindingType.Info,
-//           metadata: {
-//             to,
-//             from,
-//           },
-//         })
-//       );
-//       findingsCount++;
-//     }
-//   });
-
-//   return findings;
-// };
-
-const handleBlock: HandleBlock = async (blockEvent: BlockEvent) => {
+const handleRewardTransaction: HandleTransaction = async (
+  txEvent: TransactionEvent
+) => {
   const findings: Finding[] = [];
-  // detect some block condition
+  const bnbxRewardEvents = txEvent.filterLog(REWARD_EVENT, STAKE_MANAGER);
 
-  someArray.push(1);
-  findings.push(
-    Finding.fromObject({
-      name: "High Tether Transfer",
-      description: `High amount of USDT transferred: ${someArray.length}`,
-      alertId: "FORTA-1",
-      severity: FindingSeverity.Low,
-      type: FindingType.Info,
-    })
-  );
+  if (bnbxRewardEvents.length) {
+    const { _amount } = bnbxRewardEvents[0].args;
+    if (lastRewardsTime) {
+      if (
+        lastRewardAmount
+          .sub(_amount)
+          .abs()
+          .gt(lastRewardAmount.mul(REWARD_CHANGE_PCT_THRESHOLD).div(100))
+      ) {
+        findings.push(
+          Finding.fromObject({
+            name: "Significant Reward Change",
+            description: `Reward changed more than ${REWARD_CHANGE_PCT_THRESHOLD} %`,
+            alertId: "BNBx-5",
+            protocol: protocol,
+            severity: FindingSeverity.High,
+            type: FindingType.Info,
+            metadata: {
+              lastRewardAmount: lastRewardAmount.toString(),
+              cuurentRewardAmount: _amount.toString(),
+            },
+          })
+        );
+      }
+    }
+
+    lastRewardsTime = new Date();
+    dailyRewardsAlerted = false;
+    lastRewardAmount = _amount;
+
+    return findings;
+  }
+
+  if (!lastRewardsTime) {
+    return findings;
+  }
+
+  const currentTime = new Date();
+  const diff = currentTime.getTime() - lastRewardsTime.getTime();
+  const diffHours = getHours(diff);
+  if (diffHours > REWARD_DELAY_HOURS && !dailyRewardsAlerted) {
+    findings.push(
+      Finding.fromObject({
+        name: "Rewards Delay",
+        description: `Rewards not Autocompunded`,
+        alertId: "BNBx-6",
+        protocol: protocol,
+        severity: FindingSeverity.High,
+        type: FindingType.Info,
+        metadata: {
+          lastRewardsTime: lastRewardsTime.toUTCString(),
+        },
+      })
+    );
+    dailyRewardsAlerted = true;
+  }
 
   return findings;
 };
 
 export default {
-  // handleTransaction,
-  handleBlock,
+  handleTransaction,
 };

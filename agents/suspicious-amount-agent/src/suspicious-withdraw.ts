@@ -9,6 +9,7 @@ import {
 
 import {
   BNBX_UNSTAKE_THRESHOLD,
+  protocol,
   REQUEST_WITHDRAW_EVENT,
   STAKE_MANAGER,
 } from "./constants";
@@ -36,11 +37,12 @@ const handleTransaction: HandleTransaction = async (
           name: "High BNBx Unstake",
           description: `High amount of BNBx unstaked: ${normalizedValue}`,
           alertId: "BNBx-2",
+          protocol: protocol,
           severity: FindingSeverity.High,
           type: FindingType.Info,
           metadata: {
-            _account,
-            _amountInBnbX,
+            account: _account,
+            amountInBNBx: _amountInBnbX.toString(),
           },
         })
       );
