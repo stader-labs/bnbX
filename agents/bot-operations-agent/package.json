@@ -1,5 +1,5 @@
 {
-  "name": "bot-operations-agent",
+  "name": "bnbx-bot-operations-agent",
   "version": "0.0.1",
   "description": "Alerts on Off Chain Bot Delays and Failures",
   "chainIds": [

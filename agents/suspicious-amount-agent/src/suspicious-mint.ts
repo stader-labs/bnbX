@@ -35,9 +35,9 @@ const handleTransaction: HandleTransaction = async (
     if (value.gt(minThreshold)) {
       findings.push(
         Finding.fromObject({
-          name: "High BNBx Mint",
-          description: `High amount of BNBx minted: ${normalizedValue}`,
-          alertId: "BNBx-1",
+          name: "Large BNBx Mint",
+          description: `Large amount of BNBx minted: ${normalizedValue}`,
+          alertId: "BNBx-LARGE-MINT",
           protocol: protocol,
           severity: FindingSeverity.High,
           type: FindingType.Info,

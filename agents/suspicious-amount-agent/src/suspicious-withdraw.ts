@@ -34,9 +34,9 @@ const handleTransaction: HandleTransaction = async (
     if (_amountInBnbX.gt(minThreshold)) {
       findings.push(
         Finding.fromObject({
-          name: "High BNBx Unstake",
-          description: `High amount of BNBx unstaked: ${normalizedValue}`,
-          alertId: "BNBx-2",
+          name: "Large BNBx Unstake",
+          description: `Large amount of BNBx unstaked: ${normalizedValue}`,
+          alertId: "BNBx-LARGE-UNSTAKE",
           protocol: protocol,
           severity: FindingSeverity.High,
           type: FindingType.Info,

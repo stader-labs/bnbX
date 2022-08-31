@@ -73,8 +73,10 @@ const handleRewardTransaction: HandleTransaction = async (
         findings.push(
           Finding.fromObject({
             name: "Significant Reward Change",
-            description: `Reward changed more than ${REWARD_CHANGE_BPS} %`,
-            alertId: "BNBx-5",
+            description: `Reward changed more than ${
+              REWARD_CHANGE_BPS / TOTAL_BPS
+            } %`,
+            alertId: "BNBx-REWARD-CHANGE",
             protocol: protocol,
             severity: FindingSeverity.High,
             type: FindingType.Info,
@@ -106,7 +108,7 @@ const handleRewardTransaction: HandleTransaction = async (
       Finding.fromObject({
         name: "Daily Rewards Failed",
         description: `Daily Rewards Autocompund not invoked since ${REWARD_DELAY_HOURS} Hours`,
-        alertId: "BNBx-6",
+        alertId: "BNBx-DAILY-REWARDS",
         protocol: protocol,
         severity: FindingSeverity.High,
         type: FindingType.Info,
@@ -148,7 +150,7 @@ const handleStartDelegationTransaction: HandleTransaction = async (
       Finding.fromObject({
         name: "Start Delegation Failed",
         description: `Start Delegation not invoked since ${START_DELEGATION_DELAY} Hours`,
-        alertId: "BNBx-7",
+        alertId: "BNBx-START-DELEGATION",
         protocol: protocol,
         severity: FindingSeverity.High,
         type: FindingType.Info,
@@ -196,7 +198,7 @@ const handleCompleteDelegationTransaction: HandleTransaction = async (
       Finding.fromObject({
         name: "Complete Delegation Failed",
         description: `Complete Delegation not invoked since ${COMPLETE_DELEGATION_DELAY} Hours past last Start Delegation`,
-        alertId: "BNBx-8",
+        alertId: "BNBx-COMPLETE-DELEGATION",
         protocol: protocol,
         severity: FindingSeverity.High,
         type: FindingType.Info,
@@ -239,7 +241,7 @@ const handleStartUndelegationTransaction: HandleTransaction = async (
       Finding.fromObject({
         name: "Start Undelegation Failed",
         description: `Start Undelegation not invoked since ${START_UNDELEGATION_DELAY} Hours`,
-        alertId: "BNBx-9",
+        alertId: "BNBx-START-UNDELEGATION",
         protocol: protocol,
         severity: FindingSeverity.High,
         type: FindingType.Info,
@@ -291,7 +293,7 @@ const handleUndelegationUpdateTransaction: HandleTransaction = async (
       Finding.fromObject({
         name: "Undelegation Update Failed",
         description: `Undelegation not invoked at Beacon Chain since ${UNDELEGATION_UPDATE_DELAY} Hours past last Start UnDelegation`,
-        alertId: "BNBx-10",
+        alertId: "BNBx-UNDELEGATION-UPDATE",
         protocol: protocol,
         severity: FindingSeverity.High,
         type: FindingType.Info,
@@ -341,7 +343,7 @@ const handleCompleteUndelegationTransaction: HandleTransaction = async (
       Finding.fromObject({
         name: "Complete Undelegation Failed",
         description: `Complete Undelegation not invoked since ${COMPLETE_UNDELEGATION_DELAY} Hours past last Start Undelegation`,
-        alertId: "BNBx-11",
+        alertId: "BNBx-COMPLETE-UNDELEGATION",
         protocol: protocol,
         severity: FindingSeverity.High,
         type: FindingType.Info,

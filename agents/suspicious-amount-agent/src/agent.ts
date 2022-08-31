@@ -8,7 +8,6 @@ import {
 
 import * as suspiciousMint from "./suspicious-mint";
 import * as suspiciousWithdraw from "./suspicious-withdraw";
-import * as suspiciousRewards from "./suspicious-rewards";
 import * as erDrop from "./er-drop";
 import * as supplyChange from "./bnbx-supply";
 
@@ -19,7 +18,6 @@ const handleTransaction: HandleTransaction = async (
     await Promise.all([
       suspiciousMint.handleTransaction(txEvent),
       suspiciousWithdraw.handleTransaction(txEvent),
-      suspiciousRewards.handleTransaction(txEvent),
     ])
   ).flat();
 

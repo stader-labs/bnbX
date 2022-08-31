@@ -20,6 +20,7 @@ import { BigNumber } from "ethers";
 import { getHours } from "./utils";
 
 let lastSupply: BigNumber, lastSupplyTime: Date;
+let supplyMismatch: boolean;
 
 const handleBlock: HandleBlock = async (blockEvent: BlockEvent) => {
   const findings: Finding[] = [];
@@ -37,24 +38,36 @@ const handleBlock: HandleBlock = async (blockEvent: BlockEvent) => {
   const currentSupply: BigNumber = await bnbX.totalSupply();
 
   if (
-    currentER.mul(totalPooledBnb).div(oneEther).sub(currentSupply).abs().gt(1)
+    currentER
+      .mul(currentSupply)
+      .div(oneEther)
+      .sub(totalPooledBnb)
+      .abs()
+      .div(oneEther)
+      .gt(1)
   ) {
-    findings.push(
-      Finding.fromObject({
-        name: "BNBx Supply Mis-Match",
-        description: `BNBx, ER and TotalPooledBnb doesn't match`,
-        alertId: "BNBx-SUPPLY-MISMATCH",
-        protocol: protocol,
-        severity: FindingSeverity.Critical,
-        type: FindingType.Exploit,
-        metadata: {
-          currentER: currentER.toString(),
-          totalPooledBnb: totalPooledBnb.toString(),
-          currentSupply: currentSupply.toString(),
-        },
-      })
-    );
+    if (!supplyMismatch) {
+      findings.push(
+        Finding.fromObject({
+          name: "BNBx Supply Mis-Match",
+          description: `BNBx, ER and TotalPooledBnb doesn't match`,
+          alertId: "BNBx-SUPPLY-MISMATCH",
+          protocol: protocol,
+          severity: FindingSeverity.Critical,
+          type: FindingType.Exploit,
+          metadata: {
+            currentER: currentER.toString(),
+            totalPooledBnb: totalPooledBnb.toString(),
+            currentSupply: currentSupply.toString(),
+          },
+        })
+      );
+      supplyMismatch = true;
+    }
+  } else {
+    supplyMismatch = false;
   }
+
   const currentSupplyTime: Date = new Date();
   if (!lastSupply) {
     lastSupply = currentSupply;
