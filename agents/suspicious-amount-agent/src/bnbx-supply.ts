@@ -36,6 +36,7 @@ const handleBlock: HandleBlock = async (blockEvent: BlockEvent) => {
   const currentER: BigNumber = await stakeManager.convertBnbXToBnb(oneEther);
   const totalPooledBnb: BigNumber = await stakeManager.getTotalPooledBnb();
   const currentSupply: BigNumber = await bnbX.totalSupply();
+  const currentSupplyTime: Date = new Date();
 
   if (
     currentER
@@ -68,7 +69,6 @@ const handleBlock: HandleBlock = async (blockEvent: BlockEvent) => {
     supplyMismatch = false;
   }
 
-  const currentSupplyTime: Date = new Date();
   if (!lastSupply) {
     lastSupply = currentSupply;
     lastSupplyTime = currentSupplyTime;

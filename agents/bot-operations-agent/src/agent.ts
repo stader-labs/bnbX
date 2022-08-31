@@ -78,7 +78,7 @@ const handleRewardTransaction: HandleTransaction = async (
             } %`,
             alertId: "BNBx-REWARD-CHANGE",
             protocol: protocol,
-            severity: FindingSeverity.High,
+            severity: FindingSeverity.Medium,
             type: FindingType.Info,
             metadata: {
               lastRewardAmount: lastRewardAmount.toString(),
@@ -110,7 +110,7 @@ const handleRewardTransaction: HandleTransaction = async (
         description: `Daily Rewards Autocompund not invoked since ${REWARD_DELAY_HOURS} Hours`,
         alertId: "BNBx-DAILY-REWARDS",
         protocol: protocol,
-        severity: FindingSeverity.High,
+        severity: FindingSeverity.Critical,
         type: FindingType.Info,
         metadata: {
           lastRewardsTime: lastRewardsTime.toUTCString(),
@@ -152,7 +152,7 @@ const handleStartDelegationTransaction: HandleTransaction = async (
         description: `Start Delegation not invoked since ${START_DELEGATION_DELAY} Hours`,
         alertId: "BNBx-START-DELEGATION",
         protocol: protocol,
-        severity: FindingSeverity.High,
+        severity: FindingSeverity.Critical,
         type: FindingType.Info,
         metadata: {
           lastStartDelegationTime: lastStartDelegationTime.toUTCString(),
@@ -188,19 +188,19 @@ const handleCompleteDelegationTransaction: HandleTransaction = async (
 
   const currentTime = new Date();
   const diff = currentTime.getTime() - lastStartDelegationTime.getTime();
-  const compDiff = currentTime.getTime() - lastCompleteDelegationTime.getTime();
-
   const diffHours = getHours(diff);
-  const compDiffHours = getHours(compDiff);
 
-  if (diffHours > COMPLETE_DELEGATION_DELAY && compDiffHours > diffHours) {
+  if (
+    diffHours > COMPLETE_DELEGATION_DELAY &&
+    lastStartDelegationTime.getTime() > lastCompleteDelegationTime.getTime()
+  ) {
     findings.push(
       Finding.fromObject({
         name: "Complete Delegation Failed",
         description: `Complete Delegation not invoked since ${COMPLETE_DELEGATION_DELAY} Hours past last Start Delegation`,
         alertId: "BNBx-COMPLETE-DELEGATION",
         protocol: protocol,
-        severity: FindingSeverity.High,
+        severity: FindingSeverity.Critical,
         type: FindingType.Info,
         metadata: {
           lastStartDelegationTime: lastStartDelegationTime.toUTCString(),
@@ -243,7 +243,7 @@ const handleStartUndelegationTransaction: HandleTransaction = async (
         description: `Start Undelegation not invoked since ${START_UNDELEGATION_DELAY} Hours`,
         alertId: "BNBx-START-UNDELEGATION",
         protocol: protocol,
-        severity: FindingSeverity.High,
+        severity: FindingSeverity.Critical,
         type: FindingType.Info,
         metadata: {
           lastStartUndelegationTime: lastStartUndelegationTime.toUTCString(),
@@ -279,15 +279,11 @@ const handleUndelegationUpdateTransaction: HandleTransaction = async (
 
   const currentTime = new Date();
   const diff = currentTime.getTime() - lastStartUndelegationTime.getTime();
-  const undelegationUpdateDiff =
-    currentTime.getTime() - lastUndelegationUpdateTime.getTime();
-
   const diffHours = getHours(diff);
-  const undelegationUpdateDiffHours = getHours(undelegationUpdateDiff);
 
   if (
     diffHours > UNDELEGATION_UPDATE_DELAY &&
-    undelegationUpdateDiffHours > diffHours
+    lastStartUndelegationTime.getTime() > lastUndelegationUpdateTime.getTime()
   ) {
     findings.push(
       Finding.fromObject({
@@ -295,7 +291,7 @@ const handleUndelegationUpdateTransaction: HandleTransaction = async (
         description: `Undelegation not invoked at Beacon Chain since ${UNDELEGATION_UPDATE_DELAY} Hours past last Start UnDelegation`,
         alertId: "BNBx-UNDELEGATION-UPDATE",
         protocol: protocol,
-        severity: FindingSeverity.High,
+        severity: FindingSeverity.Critical,
         type: FindingType.Info,
         metadata: {
           lastStartUndelegationTime: lastStartUndelegationTime.toUTCString(),
@@ -332,20 +328,19 @@ const handleCompleteUndelegationTransaction: HandleTransaction = async (
 
   const currentTime = new Date();
   const diff = currentTime.getTime() - lastStartUndelegationTime.getTime();
-  const compDiff =
-    currentTime.getTime() - lastCompleteUndelegationTime.getTime();
-
   const diffHours = getHours(diff);
-  const compDiffHours = getHours(compDiff);
 
-  if (diffHours > COMPLETE_UNDELEGATION_DELAY && compDiffHours > diffHours) {
+  if (
+    diffHours > COMPLETE_UNDELEGATION_DELAY &&
+    lastStartUndelegationTime.getTime() > lastCompleteUndelegationTime.getTime()
+  ) {
     findings.push(
       Finding.fromObject({
         name: "Complete Undelegation Failed",
         description: `Complete Undelegation not invoked since ${COMPLETE_UNDELEGATION_DELAY} Hours past last Start Undelegation`,
         alertId: "BNBx-COMPLETE-UNDELEGATION",
         protocol: protocol,
-        severity: FindingSeverity.High,
+        severity: FindingSeverity.Critical,
         type: FindingType.Info,
         metadata: {
           lastStartUndelegationTime: lastStartUndelegationTime.toUTCString(),
