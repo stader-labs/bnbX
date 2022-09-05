@@ -74,7 +74,7 @@ const handleRewardTransaction: HandleTransaction = async (
           Finding.fromObject({
             name: "Significant Reward Change",
             description: `Reward changed more than ${
-              REWARD_CHANGE_BPS / TOTAL_BPS
+              (REWARD_CHANGE_BPS * 100) / TOTAL_BPS
             } %`,
             alertId: "BNBx-REWARD-CHANGE",
             protocol: protocol,
