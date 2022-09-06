@@ -1,6 +1,7 @@
 import {
   BlockEvent,
   ethers,
+  EventType,
   Finding,
   FindingSeverity,
   FindingType,
@@ -24,6 +25,8 @@ let supplyMismatch: boolean;
 
 const handleBlock: HandleBlock = async (blockEvent: BlockEvent) => {
   const findings: Finding[] = [];
+
+  if (blockEvent.type === EventType.REORG) return findings;
 
   const bnbX = new ethers.Contract(BNBx, abis.BnbX.abi, getEthersProvider());
   const stakeManager = new ethers.Contract(
