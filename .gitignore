@@ -15,3 +15,8 @@ artifacts
 
 # MacOS
 .DS_Store
+
+# Certora
+.certora*
+resource_errors.json
+last_conf*
