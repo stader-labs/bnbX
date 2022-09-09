@@ -19,3 +19,4 @@ artifacts
 # Certora
 .certora*
 resource_errors.json
+last_conf*
