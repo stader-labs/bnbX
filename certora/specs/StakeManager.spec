@@ -42,20 +42,20 @@ rule depositIncreasesTotalPooledBnb() {
     assert pooledBnbAfter == pooledBnbBefore + e.msg.value;
 }
 
-// rule totalSupplyIsCorrectAfterDeposit(address user, uint256 amount){
-//     env e;
+rule totalSupplyIsCorrectAfterDeposit(address user, uint256 amount){
+    env e;
 
-//     require e.msg.sender == user;
-//     require e.msg.value == amount;
+    require e.msg.sender == user;
+    require e.msg.value == amount;
 
-//     uint256 totalSupplyBefore = BnbX.totalSupply();
+    uint256 totalSupplyBefore = BnbX.totalSupply();
 
-//     require totalSupplyBefore + amount <= 500;
-//     deposit(e);
+    require totalSupplyBefore + amount <= max_uint256;
+    
+    uint256 bnbXAmount = convertBnbToBnbX(amount);
+    deposit(e);
 
-//     uint256 totalSupplyAfter = BnbX.totalSupply();
-//     uint256 userBnbXBalance = BnbX.balanceOf(user);
+    uint256 totalSupplyAfter = BnbX.totalSupply();
 
-//     assert userBnbXBalance == amount;
-//     assert amount != 0 => totalSupplyBefore < totalSupplyAfter;
-// }
+    assert amount != 0 => totalSupplyBefore + bnbXAmount == totalSupplyAfter;
+}
