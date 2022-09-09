@@ -15,6 +15,21 @@ methods{
     
 }
 
+rule userDepositsAndGetsCorrectAmountOfBnbX(address user, uint256 amount) {
+    env e;
+    require e.msg.sender == user;
+    require e.msg.value == amount;
+
+    uint256 bnbXAmount = convertBnbToBnbX(amount);
+    uint256 userBnbXBalanceBefore = BnbX.balanceOf(user);
+
+    deposit(e);
+
+    uint256 userBnbXBalanceAfter = BnbX.balanceOf(user);
+
+    assert userBnbXBalanceAfter == userBnbXBalanceBefore + bnbXAmount;
+}
+
 rule depositIncreasesTotalPooledBnb() {
     env e;
 
