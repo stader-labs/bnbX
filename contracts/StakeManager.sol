@@ -552,7 +552,7 @@ contract StakeManager is
      * @return userWithdrawalRequests array of user withdrawal requests
      */
     function getUserWithdrawalRequests(address _address)
-        external
+        public
         view
         override
         returns (WithdrawalRequest[] memory)
