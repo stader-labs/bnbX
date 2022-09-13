@@ -130,4 +130,3 @@ rule userDoesNotChangeOtherUserBalance(method f, address otherUser){
     uint256 otherUserBnbXBalanceAfter = BnbX.balanceOf(otherUser);
     assert ((otherUser != e.msg.sender) => otherUserBnbXBalanceBefore == otherUserBnbXBalanceAfter);
 }
-
