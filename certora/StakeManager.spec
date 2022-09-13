@@ -112,6 +112,7 @@ rule erDoesNotChangeOnTransfer() {
 
 }
 
+// generic function `f` invoked with its specific `args`
 rule userDoesNotChangeOtherUserBalance(method f, address otherUser){
     env e;
     calldataarg args;
