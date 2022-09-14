@@ -1,8 +1,6 @@
 using BnbX as BnbX
 
 methods{
-    //harness methods
-    getNativeTokenBalance(address) returns (uint256) envfree;
 
     convertBnbToBnbX(uint256) returns (uint256) envfree;
     convertBnbXToBnb(uint256) returns (uint256) envfree;
@@ -16,7 +14,6 @@ methods{
     totalClaimableBnb() returns (uint256) envfree;
     getBnbXWithdrawLimit() returns (uint256) envfree;
     getTotalPooledBnb() returns (uint256) envfree;
-    getUserWithdrawalRequests(address) returns ((uint256,uint256,uint256)[]) envfree;
     getUserRequestStatus(address, uint256) returns (bool, uint256) envfree;
     getContracts() returns (
             address _manager,
@@ -164,11 +161,7 @@ rule bankRunSituation(){
     isClaimable1, _amount1 = getUserRequestStatus(e1.msg.sender, 0);
     require isClaimable1 == true;
 
-    uint256 user1BnbBalanceBefore = getNativeTokenBalance(e1.msg.sender);
     claimWithdraw(e1, 0);
-    uint256 user1BnbBalanceAfter = getNativeTokenBalance(e1.msg.sender);
-
-    assert (user1BnbBalanceAfter == user1BnbBalanceBefore + _amount1);
 
     // user2 unstakes
     require (BnbX.balanceOf(e2.msg.sender) == bnbxAmt2);
@@ -179,12 +172,8 @@ rule bankRunSituation(){
     isClaimable2, _amount2 = getUserRequestStatus(e2.msg.sender, 0);
     require isClaimable2 == true;
 
-    uint256 user2BnbBalanceBefore = getNativeTokenBalance(e2.msg.sender);
     claimWithdraw(e2, 0);
-    uint256 user2BnbBalanceAfter = getNativeTokenBalance(e2.msg.sender);
 
-    assert (user2BnbBalanceAfter == user2BnbBalanceBefore + _amount2);
-    
     // user3 unstakes
     require (BnbX.balanceOf(e3.msg.sender) == bnbxAmt3);
     requestWithdraw(e3, bnbxAmt3);
@@ -194,11 +183,7 @@ rule bankRunSituation(){
     isClaimable3, _amount3 = getUserRequestStatus(e3.msg.sender, 0);
     require isClaimable3 == true;
 
-    uint256 user3BnbBalanceBefore = getNativeTokenBalance(e3.msg.sender);
     claimWithdraw(e3, 0);
-    uint256 user3BnbBalanceAfter = getNativeTokenBalance(e3.msg.sender);
-
-    assert (user3BnbBalanceAfter == user3BnbBalanceBefore + _amount3);
 
     assert (getTotalPooledBnb()==0 && totalClaimableBnb()==0) => (totalBnbXToBurn()==0 && getBnbXWithdrawLimit() == 0);
     assert(BnbX.balanceOf(e1.msg.sender) == 0);

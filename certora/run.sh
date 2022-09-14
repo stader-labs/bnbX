@@ -1,8 +1,7 @@
-certoraRun  certora/harness/StakeManagerHarness.sol \
-            contracts/StakeManager.sol \
+certoraRun  contracts/StakeManager.sol \
             contracts/BnbX.sol \
 --link      StakeManager:bnbX=BnbX \
---verify    StakeManagerHarness:certora/specs/StakeManager.spec \
+--verify    StakeManager:certora/specs/StakeManager.spec \
 --packages  @openzeppelin=node_modules/@openzeppelin \
 --path      . \
 --loop_iter 3 \
