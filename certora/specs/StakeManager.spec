@@ -1,9 +1,7 @@
-using BnbX as bnbX
+using BnbX as BnbX
 
 methods{
     //harness methods
-    getUserWithdrawalRequestLength(address) returns (uint256) envfree;
-    getUserWithdrawalRequestBnbXAmt(address, uint256) returns (uint256) envfree;
     getNativeTokenBalance(address) returns (uint256) envfree;
 
     convertBnbToBnbX(uint256) returns (uint256) envfree;
@@ -27,9 +25,9 @@ methods{
             address _bcDepositWallet
         ) envfree;
 
-    // bnbX.sol
-    bnbX.totalSupply() returns (uint256) envfree;
-    bnbX.balanceOf(address) returns (uint256) envfree;
+    // BnbX.sol
+    BnbX.totalSupply() returns (uint256) envfree;
+    BnbX.balanceOf(address) returns (uint256) envfree;
 
     
     // ERC20Upgradable summarization
@@ -42,11 +40,11 @@ rule userDepositsAndGetsCorrectAmountOfBnbX(address user, uint256 amount) {
     require e.msg.value == amount;
 
     uint256 bnbXAmount = convertBnbToBnbX(amount);
-    uint256 userBnbXBalanceBefore = bnbX.balanceOf(user);
+    uint256 userBnbXBalanceBefore = BnbX.balanceOf(user);
 
     deposit(e);
 
-    uint256 userBnbXBalanceAfter = bnbX.balanceOf(user);
+    uint256 userBnbXBalanceAfter = BnbX.balanceOf(user);
 
     assert userBnbXBalanceAfter == userBnbXBalanceBefore + bnbXAmount;
 }
@@ -69,14 +67,14 @@ rule totalSupplyIsCorrectAfterDeposit(address user, uint256 amount){
     require e.msg.sender == user;
     require e.msg.value == amount;
 
-    uint256 totalSupplyBefore = bnbX.totalSupply();
+    uint256 totalSupplyBefore = BnbX.totalSupply();
 
     require totalSupplyBefore + amount <= max_uint256;
     
     uint256 bnbXAmount = convertBnbToBnbX(amount);
     deposit(e);
 
-    uint256 totalSupplyAfter = bnbX.totalSupply();
+    uint256 totalSupplyAfter = BnbX.totalSupply();
 
     assert amount != 0 => totalSupplyBefore + bnbXAmount == totalSupplyAfter;
 }
@@ -85,11 +83,11 @@ rule totalSupplyIsCorrectAfterDeposit(address user, uint256 amount){
 rule totalSupplyDoesNotChangeAfterRequestWithdraw(uint256 unstakeBnbXAmount){
     env e;
 
-    uint256 totalSupplyBefore = bnbX.totalSupply();
+    uint256 totalSupplyBefore = BnbX.totalSupply();
 
     requestWithdraw(e, unstakeBnbXAmount);
 
-    uint256 totalSupplyAfter = bnbX.totalSupply();
+    uint256 totalSupplyAfter = BnbX.totalSupply();
 
     assert totalSupplyBefore == totalSupplyAfter;
 }
@@ -97,11 +95,11 @@ rule totalSupplyDoesNotChangeAfterRequestWithdraw(uint256 unstakeBnbXAmount){
 rule totalSupplyDoesNotChangeAfterClaimWithdraw(uint256 idx){
     env e;
 
-    uint256 totalSupplyBefore = bnbX.totalSupply();
+    uint256 totalSupplyBefore = BnbX.totalSupply();
 
     claimWithdraw(e, idx);
 
-    uint256 totalSupplyAfter = bnbX.totalSupply();
+    uint256 totalSupplyAfter = BnbX.totalSupply();
 
     assert totalSupplyBefore == totalSupplyAfter;
 }
@@ -114,7 +112,7 @@ rule erDoesNotChangeOnTransfer() {
     address otherUser; 
     uint256 amount;
 
-    bnbX.transfer(e, otherUser, amount);
+    BnbX.transfer(e, otherUser, amount);
 
     uint256 erAfter = convertBnbXToBnb(oneEther);
 
@@ -136,9 +134,9 @@ rule userDoesNotChangeOtherUserBalance(method f, address otherUser){
     require e.msg.sender != manager;
     
 
-    uint256 otherUserBnbXBalanceBefore = bnbX.balanceOf(otherUser);
+    uint256 otherUserBnbXBalanceBefore = BnbX.balanceOf(otherUser);
     f(e,args);
-    uint256 otherUserBnbXBalanceAfter = bnbX.balanceOf(otherUser);
+    uint256 otherUserBnbXBalanceAfter = BnbX.balanceOf(otherUser);
     assert ((otherUser != e.msg.sender) => otherUserBnbXBalanceBefore == otherUserBnbXBalanceAfter);
 }
 
@@ -158,12 +156,9 @@ rule bankRunSituation(){
     
     // All user unstakes
     // user1 unstakes
+    require (BnbX.balanceOf(e1.msg.sender) == bnbxAmt1);
     requestWithdraw(e1, bnbxAmt1);
-
-    uint256 userRequestLength1 = getUserWithdrawalRequestLength(e1.msg.sender);
-    uint256 userRequestBnbXAmt1 = getUserWithdrawalRequestBnbXAmt(e1.msg.sender, 0);
-    require userRequestLength1 == 1 && userRequestBnbXAmt1 == bnbxAmt1;
-
+    
     bool isClaimable1;
     uint256 _amount1;
     isClaimable1, _amount1 = getUserRequestStatus(e1.msg.sender, 0);
@@ -176,11 +171,8 @@ rule bankRunSituation(){
     assert (user1BnbBalanceAfter == user1BnbBalanceBefore + _amount1);
 
     // user2 unstakes
+    require (BnbX.balanceOf(e2.msg.sender) == bnbxAmt2);
     requestWithdraw(e2, bnbxAmt2);
-
-    uint256 userRequestLength2 = getUserWithdrawalRequestLength(e2.msg.sender);
-    uint256 userRequestBnbXAmt2 = getUserWithdrawalRequestBnbXAmt(e2.msg.sender, 0);
-    require userRequestLength2 == 1 && userRequestBnbXAmt2 == bnbxAmt2;
 
     bool isClaimable2;
     uint256 _amount2;
@@ -194,11 +186,8 @@ rule bankRunSituation(){
     assert (user2BnbBalanceAfter == user2BnbBalanceBefore + _amount2);
     
     // user3 unstakes
+    require (BnbX.balanceOf(e3.msg.sender) == bnbxAmt3);
     requestWithdraw(e3, bnbxAmt3);
-
-    uint256 userRequestLength3 = getUserWithdrawalRequestLength(e3.msg.sender);
-    uint256 userRequestBnbXAmt3 = getUserWithdrawalRequestBnbXAmt(e3.msg.sender, 0);
-    require userRequestLength3 == 1 && userRequestBnbXAmt3 == bnbxAmt3;
 
     bool isClaimable3;
     uint256 _amount3;
@@ -212,4 +201,7 @@ rule bankRunSituation(){
     assert (user3BnbBalanceAfter == user3BnbBalanceBefore + _amount3);
 
     assert (getTotalPooledBnb()==0 && totalClaimableBnb()==0) => (totalBnbXToBurn()==0 && getBnbXWithdrawLimit() == 0);
+    assert(BnbX.balanceOf(e1.msg.sender) == 0);
+    assert(BnbX.balanceOf(e2.msg.sender) == 0);
+    assert(BnbX.balanceOf(e3.msg.sender) == 0);
 }
