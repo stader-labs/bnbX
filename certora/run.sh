@@ -6,4 +6,5 @@ certoraRun  contracts/StakeManager.sol \
 --path      . \
 --loop_iter 3 \
 --settings -optimisticFallback=true --optimistic_loop \
---staging
+--staging \
+--msg "bnbx"
