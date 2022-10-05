@@ -38,3 +38,7 @@ NODE_ENV=main npx hardhat deployStakeManagerImpl --network <network>
 ```bash
 npx hardhat verify <address> <...args> --network <network>
 ```
+
+## Integration
+
+Smart contract integration guide is at [link](INTEGRATION.md)
