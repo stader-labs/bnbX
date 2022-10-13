@@ -36,9 +36,15 @@ const handleBlock: HandleBlock = async (blockEvent: BlockEvent) => {
   );
 
   const oneEther = ethers.utils.parseEther("1");
-  const currentER: BigNumber = await stakeManager.convertBnbXToBnb(oneEther);
-  const totalPooledBnb: BigNumber = await stakeManager.getTotalPooledBnb();
-  const currentSupply: BigNumber = await bnbX.totalSupply();
+  const currentER: BigNumber = await stakeManager.convertBnbXToBnb(oneEther, {
+    blockTag: blockEvent.blockNumber,
+  });
+  const totalPooledBnb: BigNumber = await stakeManager.getTotalPooledBnb({
+    blockTag: blockEvent.blockNumber,
+  });
+  const currentSupply: BigNumber = await bnbX.totalSupply({
+    blockTag: blockEvent.blockNumber,
+  });
   const currentSupplyTime: Date = new Date();
 
   if (

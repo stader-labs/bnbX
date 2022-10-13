@@ -23,7 +23,9 @@ const handleBlock: HandleBlock = async (blockEvent: BlockEvent) => {
     getEthersProvider()
   );
   const oneEther = ethers.utils.parseEther("1");
-  const currentER: BigNumber = await stakeManager.convertBnbXToBnb(oneEther);
+  const currentER: BigNumber = await stakeManager.convertBnbXToBnb(oneEther, {
+    blockTag: blockEvent.blockNumber,
+  });
   if (lastER && currentER.lt(lastER)) {
     findings.push(
       Finding.fromObject({

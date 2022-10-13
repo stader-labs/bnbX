@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "Alerts on suspicious amount of BNBx minted, unstaked, Rewards",
   "chainIds": [
-    56
+    1
   ],
   "scripts": {
     "build": "tsc",
