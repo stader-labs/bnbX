@@ -43,7 +43,7 @@ const handleTransaction: HandleTransaction = async (
 ) => {
   const findings: Finding[] = (
     await Promise.all([
-      handleRewardTransaction(txEvent),
+      // handleRewardTransaction(txEvent),
       handleStartDelegationTransaction(txEvent),
       handleCompleteDelegationTransaction(txEvent),
       handleStartUndelegationTransaction(txEvent),
@@ -55,73 +55,73 @@ const handleTransaction: HandleTransaction = async (
   return findings;
 };
 
-const handleRewardTransaction: HandleTransaction = async (
-  txEvent: TransactionEvent
-) => {
-  const findings: Finding[] = [];
-  const bnbxRewardEvents = txEvent.filterLog(REWARD_EVENT, STAKE_MANAGER);
+// const handleRewardTransaction: HandleTransaction = async (
+//   txEvent: TransactionEvent
+// ) => {
+//   const findings: Finding[] = [];
+//   const bnbxRewardEvents = txEvent.filterLog(REWARD_EVENT, STAKE_MANAGER);
 
-  if (bnbxRewardEvents.length) {
-    const { _amount } = bnbxRewardEvents[0].args;
-    if (lastRewardsTime) {
-      if (
-        lastRewardAmount
-          .sub(_amount)
-          .abs()
-          .gt(lastRewardAmount.mul(REWARD_CHANGE_BPS).div(TOTAL_BPS))
-      ) {
-        findings.push(
-          Finding.fromObject({
-            name: "Significant Reward Change",
-            description: `Reward changed more than ${
-              (REWARD_CHANGE_BPS * 100) / TOTAL_BPS
-            } %`,
-            alertId: "BNBx-REWARD-CHANGE",
-            protocol: protocol,
-            severity: FindingSeverity.Medium,
-            type: FindingType.Info,
-            metadata: {
-              lastRewardAmount: lastRewardAmount.toString(),
-              cuurentRewardAmount: _amount.toString(),
-            },
-          })
-        );
-      }
-    }
+//   if (bnbxRewardEvents.length) {
+//     const { _amount } = bnbxRewardEvents[0].args;
+//     if (lastRewardsTime) {
+//       if (
+//         lastRewardAmount
+//           .sub(_amount)
+//           .abs()
+//           .gt(lastRewardAmount.mul(REWARD_CHANGE_BPS).div(TOTAL_BPS))
+//       ) {
+//         findings.push(
+//           Finding.fromObject({
+//             name: "Significant Reward Change",
+//             description: `Reward changed more than ${
+//               (REWARD_CHANGE_BPS * 100) / TOTAL_BPS
+//             } %`,
+//             alertId: "BNBx-REWARD-CHANGE",
+//             protocol: protocol,
+//             severity: FindingSeverity.Medium,
+//             type: FindingType.Info,
+//             metadata: {
+//               lastRewardAmount: lastRewardAmount.toString(),
+//               cuurentRewardAmount: _amount.toString(),
+//             },
+//           })
+//         );
+//       }
+//     }
 
-    lastRewardsTime = new Date();
-    dailyRewardsFailed = false;
-    lastRewardAmount = _amount;
+//     lastRewardsTime = new Date();
+//     dailyRewardsFailed = false;
+//     lastRewardAmount = _amount;
 
-    return findings;
-  }
+//     return findings;
+//   }
 
-  if (!lastRewardsTime) return findings;
+//   if (!lastRewardsTime) return findings;
 
-  if (dailyRewardsFailed) return findings;
+//   if (dailyRewardsFailed) return findings;
 
-  const currentTime = new Date();
-  const diff = currentTime.getTime() - lastRewardsTime.getTime();
-  const diffHours = getHours(diff);
-  if (diffHours > REWARD_DELAY_HOURS) {
-    findings.push(
-      Finding.fromObject({
-        name: "Daily Rewards Failed",
-        description: `Daily Rewards Autocompund not invoked since ${REWARD_DELAY_HOURS} Hours`,
-        alertId: "BNBx-DAILY-REWARDS",
-        protocol: protocol,
-        severity: FindingSeverity.Critical,
-        type: FindingType.Info,
-        metadata: {
-          lastRewardsTime: lastRewardsTime.toUTCString(),
-        },
-      })
-    );
-    dailyRewardsFailed = true;
-  }
+//   const currentTime = new Date();
+//   const diff = currentTime.getTime() - lastRewardsTime.getTime();
+//   const diffHours = getHours(diff);
+//   if (diffHours > REWARD_DELAY_HOURS) {
+//     findings.push(
+//       Finding.fromObject({
+//         name: "Daily Rewards Failed",
+//         description: `Daily Rewards Autocompund not invoked since ${REWARD_DELAY_HOURS} Hours`,
+//         alertId: "BNBx-DAILY-REWARDS",
+//         protocol: protocol,
+//         severity: FindingSeverity.Critical,
+//         type: FindingType.Info,
+//         metadata: {
+//           lastRewardsTime: lastRewardsTime.toUTCString(),
+//         },
+//       })
+//     );
+//     dailyRewardsFailed = true;
+//   }
 
-  return findings;
-};
+//   return findings;
+// };
 
 const handleStartDelegationTransaction: HandleTransaction = async (
   txEvent: TransactionEvent
