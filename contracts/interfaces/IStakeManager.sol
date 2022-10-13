@@ -73,7 +73,7 @@ interface IStakeManager {
 
     function setFeeBps(uint256 _feeBps) external;
 
-    function whitelistAccount(address _account) external;
+    function whitelistAccount(address _address) external;
 
     function getTotalPooledBnb() external view returns (uint256);
 
