@@ -54,7 +54,7 @@ contract StakeManager is
     uint256 public feeBps; // range {0-10_000}
     mapping(uint256 => bool) public rewardsIdUsed;
 
-    address public whitelistedAccount;
+    address public redirectAddress;
 
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -496,17 +496,17 @@ contract StakeManager is
         emit SetFeeBps(_feeBps);
     }
 
-    function whitelistAccount(address _address)
+    function setRedirectAddress(address _address)
         external
         override
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(whitelistedAccount != _address, "Old address == new address");
+        require(redirectAddress != _address, "Old address == new address");
         require(_address != address(0), "zero address provided");
 
-        whitelistedAccount = _address;
+        redirectAddress = _address;
 
-        emit WhitelistAccount(_address);
+        emit SetRedirectAddress(_address);
     }
 
     ////////////////////////////////////////////////////////////
@@ -704,12 +704,8 @@ contract StakeManager is
     }
 
     receive() external payable {
-        address msgSender = msg.sender;
-        if (msgSender != whitelistedAccount) {
-            AddressUpgradeable.sendValue(
-                payable(whitelistedAccount),
-                msg.value
-            );
+        if (msg.sender != redirectAddress) {
+            AddressUpgradeable.sendValue(payable(redirectAddress), msg.value);
         }
     }
 

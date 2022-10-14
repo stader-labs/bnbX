@@ -73,7 +73,7 @@ interface IStakeManager {
 
     function setFeeBps(uint256 _feeBps) external;
 
-    function whitelistAccount(address _address) external;
+    function setRedirectAddress(address _address) external;
 
     function getTotalPooledBnb() external view returns (uint256);
 
@@ -141,5 +141,5 @@ interface IStakeManager {
     event SetMinDelegateThreshold(uint256 _minDelegateThreshold);
     event SetMinUndelegateThreshold(uint256 _minUndelegateThreshold);
     event SetFeeBps(uint256 _feeBps);
-    event WhitelistAccount(address indexed _address);
+    event SetRedirectAddress(address indexed _address);
 }
