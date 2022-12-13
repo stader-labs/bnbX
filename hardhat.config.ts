@@ -9,6 +9,7 @@ import "@openzeppelin/hardhat-upgrades";
 import "@openzeppelin/hardhat-defender";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
+import "hardhat-forta";
 
 import {
   DEPLOYER_PRIVATE_KEY,
