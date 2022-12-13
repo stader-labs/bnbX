@@ -1,0 +1,12 @@
+{
+  "testnet": {
+    "contract": "0x563359C1E19A5cD0E57d7756750910422b1435FD",
+    "admin": "0x8e39FBBA48014E8a36b36dad183d2A00E9c750cC",
+    "trustedForwarder": "0x61456BF1715C1415730076BB79ae118E806E74d2"
+  },
+  "mainnet": {
+    "contract": "",
+    "admin": "",
+    "trustedForwarder": "0x86C80a8aa58e0A4fa09A69624c31Ab2a6CAD56b8"
+  }
+}

@@ -11,13 +11,15 @@ contract KOLReferral is ERC2771Recipient {
     address public admin;
 
     modifier onlyAdmin() {
-        require(msg.sender == admin, "Only Admin");
+        require(_msgSender() == admin, "Only Admin");
         _;
     }
 
-    constructor(address admin_) {
+    constructor(address admin_, address trustedForwarder_) {
         require(admin_ != address(0), "zero address");
+        require(trustedForwarder_ != address(0), "zero address");
         admin = admin_;
+        _setTrustedForwarder(trustedForwarder_);
     }
 
     function registerKOL(address wallet, string memory referralId)
@@ -43,11 +45,11 @@ contract KOLReferral is ERC2771Recipient {
             "Invalid ReferralId"
         );
         require(
-            bytes(userReferredBy[msg.sender]).length == 0,
+            bytes(userReferredBy[_msgSender()]).length == 0,
             "User is already referred before"
         );
-        userReferredBy[msg.sender] = referralId;
-        _users.push(msg.sender);
+        userReferredBy[_msgSender()] = referralId;
+        _users.push(_msgSender());
     }
 
     function queryUserReferrer(address user)
@@ -91,5 +93,10 @@ contract KOLReferral is ERC2771Recipient {
         require(admin_ != address(0), "zero address");
         require(admin_ != admin, "old admin == new admin");
         admin = admin_;
+    }
+
+    function setTrustedForwarder(address trustedForwarder_) external onlyAdmin {
+        require(trustedForwarder_ != address(0), "zero address");
+        _setTrustedForwarder(trustedForwarder_);
     }
 }

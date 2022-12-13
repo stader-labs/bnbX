@@ -31,6 +31,8 @@ NODE_ENV=main npx hardhat deployBnbXImpl --network <network>
 NODE_ENV=main npx hardhat deployStakeManagerProxy <bnbX> <admin> <manager> <tokenHub> <bcDepositWallet> <bot> <feeBps> --network <network>
 NODE_ENV=main npx hardhat upgradeStakeManagerProxy <proxyAddress> --network <network>
 NODE_ENV=main npx hardhat deployStakeManagerImpl --network <network>
+
+NODE_ENV=main npx hardhat deployReferralContract <admin> <trustedForwarder> --network <network>
 ```
 
 ## Verifying on etherscan

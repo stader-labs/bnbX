@@ -1,6 +1,11 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { HardhatUserConfig, task } from "hardhat/config";
-import { deployDirect, deployProxy, upgradeProxy } from "./scripts/tasks";
+import {
+  deployDirect,
+  deployNonUpgradeableContract,
+  deployProxy,
+  upgradeProxy,
+} from "./scripts/tasks";
 
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
@@ -76,6 +81,20 @@ task(
 ).setAction(async (args, hre: HardhatRuntimeEnvironment) => {
   await deployDirect(hre, "StakeManager");
 });
+
+task("deployReferralContract", "Deploy KOL Referral Contract")
+  .addPositionalParam("admin")
+  .addPositionalParam("trustedForwarder")
+  .setAction(
+    async ({ admin, trustedForwarder }, hre: HardhatRuntimeEnvironment) => {
+      await deployNonUpgradeableContract(
+        hre,
+        "KOLReferral",
+        admin,
+        trustedForwarder
+      );
+    }
+  );
 
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
