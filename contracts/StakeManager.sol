@@ -54,6 +54,8 @@ contract StakeManager is
     uint256 public feeBps; // range {0-10_000}
     mapping(uint256 => bool) public rewardsIdUsed;
 
+    address public redirectAddress;
+
     /// @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -494,6 +496,19 @@ contract StakeManager is
         emit SetFeeBps(_feeBps);
     }
 
+    function setRedirectAddress(address _address)
+        external
+        override
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(redirectAddress != _address, "Old address == new address");
+        require(_address != address(0), "zero address provided");
+
+        redirectAddress = _address;
+
+        emit SetRedirectAddress(_address);
+    }
+
     ////////////////////////////////////////////////////////////
     /////                                                    ///
     /////                 ***Getters***                      ///
@@ -686,6 +701,12 @@ contract StakeManager is
      */
     function togglePause() external onlyRole(DEFAULT_ADMIN_ROLE) {
         paused() ? _unpause() : _pause();
+    }
+
+    receive() external payable {
+        if (msg.sender != redirectAddress) {
+            AddressUpgradeable.sendValue(payable(redirectAddress), msg.value);
+        }
     }
 
     modifier onlyManager() {
