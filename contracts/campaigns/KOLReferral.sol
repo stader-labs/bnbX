@@ -113,15 +113,15 @@ contract KOLReferral is Initializable, ERC2771Recipient {
         return (numUsers, userList);
     }
 
-    function getTotalKOLs() external view returns (uint256) {
+    function getKOLCount() external view returns (uint256) {
         return _kols.length;
     }
 
-    function getTotalUsers() external view returns (uint256) {
+    function getUserCount() external view returns (uint256) {
         return _users.length;
     }
 
-    function getKOLTotalUsers(address kol) external view returns (uint256) {
+    function getKOLRefCount(address kol) external view returns (uint256) {
         return _kolToUsers[kol].length;
     }
 
