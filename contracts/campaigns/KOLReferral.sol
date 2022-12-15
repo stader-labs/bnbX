@@ -1,21 +1,34 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.0;
 
+import "@openzeppelin/contracts-upgradeable/proxy/utils/Initializable.sol";
 import "@opengsn/contracts/src/ERC2771Recipient.sol";
 
-contract KOLReferral is ERC2771Recipient {
+contract KOLReferral is Initializable, ERC2771Recipient {
+    address public admin;
+
     mapping(address => string) public walletToReferralId;
     mapping(string => address) public referralIdToWallet;
     mapping(address => string) public userReferredBy;
+    mapping(address => address[]) private _kolToUsers;
+
     address[] private _users;
-    address public admin;
+    address[] private _kols;
 
     modifier onlyAdmin() {
         require(_msgSender() == admin, "Only Admin");
         _;
     }
 
-    constructor(address admin_, address trustedForwarder_) {
+    /// @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
+    function initialize(address admin_, address trustedForwarder_)
+        external
+        initializer
+    {
         require(admin_ != address(0), "zero address");
         require(trustedForwarder_ != address(0), "zero address");
         admin = admin_;
@@ -36,6 +49,7 @@ contract KOLReferral is ERC2771Recipient {
         );
         walletToReferralId[wallet] = referralId;
         referralIdToWallet[referralId] = wallet;
+        _kols.push(wallet);
     }
 
     // TODO: use msgSender() for gasless transaction
@@ -50,6 +64,9 @@ contract KOLReferral is ERC2771Recipient {
         );
         userReferredBy[_msgSender()] = referralId;
         _users.push(_msgSender());
+
+        address kolWallet = referralIdToWallet[referralId];
+        _kolToUsers[kolWallet].push(_msgSender());
     }
 
     function queryUserReferrer(address user)
@@ -57,12 +74,23 @@ contract KOLReferral is ERC2771Recipient {
         view
         returns (address _referrer)
     {
-        require(bytes(userReferredBy[user]).length != 0, "User not referred");
         string memory referralId = userReferredBy[user];
         return referralIdToWallet[referralId];
     }
 
-    function getUserList(uint256 startIdx, uint256 maxNumUsers)
+    function getKOLUserList(address kol)
+        external
+        view
+        returns (address[] memory)
+    {
+        return _kolToUsers[kol];
+    }
+
+    function getKOLs() external view returns (address[] memory) {
+        return _kols;
+    }
+
+    function getUsers(uint256 startIdx, uint256 maxNumUsers)
         external
         view
         returns (uint256 numUsers, address[] memory userList)
@@ -85,8 +113,16 @@ contract KOLReferral is ERC2771Recipient {
         return (numUsers, userList);
     }
 
+    function getTotalKOLs() external view returns (uint256) {
+        return _kols.length;
+    }
+
     function getTotalUsers() external view returns (uint256) {
         return _users.length;
+    }
+
+    function getKOLTotalUsers(address kol) external view returns (uint256) {
+        return _kolToUsers[kol].length;
     }
 
     function setAdmin(address admin_) external onlyAdmin {

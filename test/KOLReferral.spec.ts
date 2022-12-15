@@ -1,10 +1,9 @@
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 import { KOLReferral } from "../typechain";
 
 describe("KOL referral Contract", () => {
-  let deployer: SignerWithAddress;
   let admin: SignerWithAddress;
   let kol1: SignerWithAddress;
   let trustedForwarder: SignerWithAddress;
@@ -14,9 +13,10 @@ describe("KOL referral Contract", () => {
   beforeEach(async () => {
     [admin, kol1, trustedForwarder, ...users] = await ethers.getSigners();
 
-    kolContract = await (
-      await ethers.getContractFactory("KOLReferral")
-    ).deploy(admin.address, trustedForwarder.address);
+    kolContract = (await upgrades.deployProxy(
+      await ethers.getContractFactory("KOLReferral"),
+      [admin.address, trustedForwarder.address]
+    )) as KOLReferral;
     await kolContract.deployed();
   });
 
@@ -27,6 +27,7 @@ describe("KOL referral Contract", () => {
     expect(await kolContract.referralIdToWallet(referralId1)).be.eq(
       ethers.constants.AddressZero
     );
+    expect(await kolContract.getTotalKOLs()).be.eq(0);
 
     await kolContract.registerKOL(kol1.address, referralId1);
     expect(await kolContract.walletToReferralId(kol1.address)).be.eq(
@@ -35,6 +36,7 @@ describe("KOL referral Contract", () => {
     expect(await kolContract.referralIdToWallet(referralId1)).be.eq(
       kol1.address
     );
+    expect(await kolContract.getTotalKOLs()).be.eq(1);
   });
 
   it("store user info", async () => {
@@ -42,9 +44,7 @@ describe("KOL referral Contract", () => {
     await kolContract.registerKOL(kol1.address, referralId1);
 
     expect(await kolContract.getTotalUsers()).to.be.eq(0);
-    await expect(
-      kolContract.queryUserReferrer(users[0].address)
-    ).to.be.revertedWith("User not referred");
+    expect(await kolContract.getKOLTotalUsers(kol1.address)).be.eq(0);
 
     let u1kolContract = kolContract.connect(users[0]);
     await u1kolContract.storeUserInfo(referralId1);
@@ -52,9 +52,10 @@ describe("KOL referral Contract", () => {
     expect(await kolContract.queryUserReferrer(users[0].address)).to.be.eq(
       kol1.address
     );
+    expect(await kolContract.getKOLTotalUsers(kol1.address)).be.eq(1);
 
     const totalUsers = await kolContract.getTotalUsers();
-    const { numUsers, userList } = await kolContract.getUserList(0, totalUsers);
+    const { numUsers, userList } = await kolContract.getUsers(0, totalUsers);
     expect(userList[0]).to.be.eq(users[0].address);
     expect(numUsers).to.be.eq(1);
     expect(numUsers).to.be.eq(totalUsers);

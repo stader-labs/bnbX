@@ -33,6 +33,7 @@ NODE_ENV=main npx hardhat upgradeStakeManagerProxy <proxyAddress> --network <net
 NODE_ENV=main npx hardhat deployStakeManagerImpl --network <network>
 
 NODE_ENV=main npx hardhat deployReferralContract <admin> <trustedForwarder> --network <network>
+NODE_ENV=main npx hardhat upgradeReferralContract <proxyAddress> --network <network>
 ```
 
 ## Verifying on etherscan
