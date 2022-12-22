@@ -59,5 +59,9 @@ describe("KOL referral Contract", () => {
     expect(userList[0]).to.be.eq(users[0].address);
     expect(numUsers).to.be.eq(1);
     expect(numUsers).to.be.eq(totalUsers);
+
+    await expect(
+      kolContract.connect(kol1).storeUserInfo(referralId1)
+    ).be.revertedWith("kol not allowed as user");
   });
 });

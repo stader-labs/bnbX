@@ -66,6 +66,8 @@ contract KOLReferral is Initializable, ERC2771Recipient {
         _users.push(_msgSender());
 
         address kolWallet = referralIdToWallet[referralId];
+
+        require(_msgSender() != kolWallet, "kol not allowed as user");
         _kolToUsers[kolWallet].push(_msgSender());
     }
 
