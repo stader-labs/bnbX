@@ -6,6 +6,13 @@
 
 ## Alerts
 
+- BNBx-REWARD-CHANGE
+
+  - Fired when Reward changes by more than 5 %
+  - Severity is set to "Medium"
+  - Type is set to "Info"
+  - metadata: lastRewardAmount, curentRewardAmount
+
 - BNBx-LARGE-MINT
 
   - Fired when BNBx is minted in large amount (500 BNBx)

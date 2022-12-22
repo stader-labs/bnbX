@@ -10,6 +10,7 @@ import * as suspiciousMint from "./suspicious-mint";
 import * as suspiciousWithdraw from "./suspicious-withdraw";
 import * as erDrop from "./er-drop";
 import * as supplyChange from "./bnbx-supply";
+import * as rewardChange from "./suspicious-rewards";
 
 const handleTransaction: HandleTransaction = async (
   txEvent: TransactionEvent
@@ -18,6 +19,7 @@ const handleTransaction: HandleTransaction = async (
     await Promise.all([
       suspiciousMint.handleTransaction(txEvent),
       suspiciousWithdraw.handleTransaction(txEvent),
+      rewardChange.handleTransaction(txEvent),
     ])
   ).flat();
 

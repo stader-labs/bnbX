@@ -7,6 +7,7 @@ const BEP20_TRANSFER_EVENT =
 const REQUEST_WITHDRAW_EVENT =
   "event RequestWithdraw(address indexed _account, uint256 _amountInBnbX)";
 const REWARD_EVENT = "event Redelegate(uint256 _rewardsId, uint256 _amount)";
+const REWARD_CHANGE_PCT = 5; // 0 - 100
 
 const BNBX_MINT_THRESHOLD = "500";
 const BNBX_UNSTAKE_THRESHOLD = "500";
@@ -23,6 +24,7 @@ export {
   BEP20_TRANSFER_EVENT,
   REQUEST_WITHDRAW_EVENT,
   REWARD_EVENT,
+  REWARD_CHANGE_PCT,
   BNBX_MINT_THRESHOLD,
   BNBX_UNSTAKE_THRESHOLD,
   MIN_REWARD_THRESHOLD,
