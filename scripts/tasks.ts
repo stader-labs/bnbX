@@ -56,20 +56,3 @@ export async function upgradeProxy(
   console.log(`Proxy ${contractName} deployed to:`, contract.address);
   console.log(`Impl ${contractName} deployed to:`, contractImplAddress);
 }
-
-export async function deployNonUpgradeableContract(
-  hre: HardhatRuntimeEnvironment,
-  contractName: string,
-  ...args: any
-) {
-  const Contract = await hre.ethers.getContractFactory(contractName);
-
-  console.log(`Deploying Contract ${contractName}: ${args}, ${args.length}`);
-  const contract = args.length
-    ? await Contract.deploy(...args)
-    : await Contract.deploy();
-
-  await contract.deployed();
-
-  console.log(`Contract ${contractName} deployed to:`, contract.address);
-}

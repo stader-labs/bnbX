@@ -52,7 +52,6 @@ contract KOLReferral is Initializable, ERC2771Recipient {
         _kols.push(wallet);
     }
 
-    // TODO: use msgSender() for gasless transaction
     function storeUserInfo(string memory referralId) external {
         require(
             referralIdToWallet[referralId] != address(0),

@@ -1,11 +1,6 @@
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { HardhatUserConfig, task } from "hardhat/config";
-import {
-  deployDirect,
-  deployNonUpgradeableContract,
-  deployProxy,
-  upgradeProxy,
-} from "./scripts/tasks";
+import { deployDirect, deployProxy, upgradeProxy } from "./scripts/tasks";
 
 import "@nomiclabs/hardhat-etherscan";
 import "@nomiclabs/hardhat-waffle";
