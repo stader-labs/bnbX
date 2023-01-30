@@ -77,6 +77,21 @@ task(
   await deployDirect(hre, "StakeManager");
 });
 
+task("deployReferralContract", "Deploy KOL Referral Contract")
+  .addPositionalParam("admin")
+  .addPositionalParam("trustedForwarder")
+  .setAction(
+    async ({ admin, trustedForwarder }, hre: HardhatRuntimeEnvironment) => {
+      await deployProxy(hre, "KOLReferral", admin, trustedForwarder);
+    }
+  );
+
+task("upgradeReferralContract", "Upgrade KOL Referral Contract")
+  .addPositionalParam("proxyAddress")
+  .setAction(async ({ proxyAddress }, hre: HardhatRuntimeEnvironment) => {
+    await upgradeProxy(hre, "KOLReferral", proxyAddress);
+  });
+
 const config: HardhatUserConfig = {
   defaultNetwork: "hardhat",
   solidity: {
