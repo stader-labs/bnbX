@@ -9,5 +9,11 @@
     "proxyAdmin": "0xcb507d421540f1ec1b8adcaf81995c7c89f4213e",
     "admin": "0x8e39FBBA48014E8a36b36dad183d2A00E9c750cC",
     "trustedForwarder": "0x86C80a8aa58e0A4fa09A69624c31Ab2a6CAD56b8"
+  },
+  "main": {
+    "contract": "0xa76B46b181B09cC25D02eA412e499E3afbA4c372",
+    "proxyAdmin": "0xF90e293D34a42CB592Be6BE6CA19A9963655673C",
+    "admin": "0x8e39FBBA48014E8a36b36dad183d2A00E9c750cC",
+    "trustedForwarder": "0x86C80a8aa58e0A4fa09A69624c31Ab2a6CAD56b8"
   }
 }
