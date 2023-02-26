@@ -11,6 +11,7 @@ import * as suspiciousWithdraw from "./suspicious-withdraw";
 import * as erDrop from "./er-drop";
 import * as supplyChange from "./bnbx-supply";
 import * as rewardChange from "./suspicious-rewards";
+import * as upgradeProposal from "./upgrade-proposal";
 
 const handleTransaction: HandleTransaction = async (
   txEvent: TransactionEvent
@@ -20,6 +21,7 @@ const handleTransaction: HandleTransaction = async (
       suspiciousMint.handleTransaction(txEvent),
       suspiciousWithdraw.handleTransaction(txEvent),
       rewardChange.handleTransaction(txEvent),
+      upgradeProposal.handleTransaction(txEvent),
     ])
   ).flat();
 

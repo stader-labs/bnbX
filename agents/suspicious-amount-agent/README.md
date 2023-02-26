@@ -47,3 +47,11 @@
   - Severity is set to "High"
   - Type is set to "Suspicious"
   - metadata: lastSupply, currentSupply
+
+- BNBX-TIMELOCK
+
+  - Fired when contract upgrade proposal is scheduled
+  - Severity is set to "Info"
+  - Type is set to "Info"
+  - metadata: delay
+  - addresses: [timelock, proxy_admin]
