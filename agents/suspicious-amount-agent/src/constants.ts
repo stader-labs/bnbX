@@ -9,7 +9,7 @@ const BEP20_TRANSFER_EVENT =
 const REQUEST_WITHDRAW_EVENT =
   "event RequestWithdraw(address indexed _account, uint256 _amountInBnbX)";
 const REWARD_EVENT = "event Redelegate(uint256 _rewardsId, uint256 _amount)";
-const REWARD_CHANGE_PCT = 20; // 0 - 100
+const REWARD_CHANGE_PCT = 10; // 0 - 100
 
 export const TIMELOCK_SCHEDULE_EVENT =
   "event CallScheduled(bytes32 indexed id, uint256 indexed index, address target,uint256 value,bytes data,bytes32 predecessor, uint256 delay)";
