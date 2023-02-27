@@ -11,6 +11,7 @@ import {
   TIMELOCK_CONTRACT,
   TIMELOCK_SCHEDULE_EVENT,
 } from "./constants";
+import { getHours, getMins } from "./utils";
 
 const handleTransaction: HandleTransaction = async (
   txEvent: TransactionEvent
@@ -25,10 +26,14 @@ const handleTransaction: HandleTransaction = async (
     });
 
   if (upgradeEvents.length) {
+    const delayInMiliSecs =
+      parseInt(upgradeEvents[0].args.delay.toString()) * 1000;
     findings.push(
       Finding.fromObject({
         name: "Proposal Scheduled",
-        description: `Upgrade Proposal Scheduled. Timelock expires in ${upgradeEvents[0].args.delay.toString()} seconds`,
+        description: `Upgrade Proposal Scheduled. Timelock expires in ${getHours(
+          delayInMiliSecs
+        )} hours ${getMins(delayInMiliSecs) % 60} mins`,
         alertId: "BNBX-TIMELOCK",
         protocol: protocol,
         severity: FindingSeverity.Info,
