@@ -51,7 +51,7 @@
 - BNBX-TIMELOCK
 
   - Fired when contract upgrade proposal is scheduled
-  - Severity is set to "Info"
+  - Severity is set to "High"
   - Type is set to "Info"
   - metadata: delay
   - addresses: [timelock, proxy_admin]

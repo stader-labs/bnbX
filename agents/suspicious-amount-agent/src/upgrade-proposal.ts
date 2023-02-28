@@ -36,7 +36,7 @@ const handleTransaction: HandleTransaction = async (
         )} hours ${getMins(delayInMiliSecs) % 60} mins`,
         alertId: "BNBX-TIMELOCK",
         protocol: protocol,
-        severity: FindingSeverity.Info,
+        severity: FindingSeverity.High,
         type: FindingType.Info,
         metadata: {
           delay: upgradeEvents[0].args.delay.toString(),

@@ -2,6 +2,10 @@
   "name": "bnbx-suspicious-amount-agent",
   "version": "0.0.1",
   "description": "Alerts on suspicious amount of BNBx minted, unstaked, Rewards",
+  "repository": {
+    "url": "https://github.com/stader-labs/bnbX/tree/forta-update/agents/suspicious-amount-agent",
+    "type": "git"
+  },
   "chainIds": [
     56
   ],
