@@ -1,253 +1,183 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.25;
+pragma solidity ^0.8.24 < 0.9.0;
 
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
 
 import "./interfaces/IOperatorRegistry.sol";
+import "./interfaces/IStakeHub.sol";
 
 /// @title OperatorRegistry
 /// @notice OperatorRegistry is the main contract that manages operators
 contract OperatorRegistry is
-	IOperatorRegistry,
-	PausableUpgradeable,
-	AccessControlUpgradeable,
-	ReentrancyGuardUpgradeable
+    IOperatorRegistry,
+    PausableUpgradeable,
+    AccessControlUpgradeable,
+    ReentrancyGuardUpgradeable
 {
-	address private stakeManager;
-	address private bnbERC20;
-	address private bnbX;
+    IStakeHub public STAKEHUB;
+    address public BNBX;
 
-	string public override version;
-	uint256 public override preferredDepositValidatorId;
-	uint256 public override preferredWithdrawalValidatorId;
-	mapping(uint256 => bool) public override validatorIdExists;
+    address public override preferredDepositOperator;
+    address public override preferredWithdrawalOperator;
+    mapping(address => bool) public operatorExists;
 
-	uint256[] private validators;
+    address[] private operators;
 
-	bytes32 public constant BOT = keccak256("BOT");
+    /// @notice Initialize the OperatorRegistry contract.
+    /// @param _stakeHub address of the stake hub contract.
+    /// @param _bnbX address of the bnbX contract.
+    /// @param _manager address of the manager.
+    function initialize(
+        address _stakeHub,
+        address _bnbX,
+        address _manager
+    ) external initializer {
+        __AccessControl_init();
+        __Pausable_init();
 
-	/// -------------------------- initialize ----------------------------------
+        STAKEHUB = IStakeHub(_stakeHub);
+        BNBX = _bnbX;
 
-	/// @notice Initialize the ValidatorRegistry contract.
-	/// @param _stakeManager address of the bnb stake manager.
-	/// @param _bnbERC20 address of the bnb ERC20 contract.
-	/// @param _bnbX address of the bnbX contract.
-	/// @param _manager address of the manager.
-	function initialize(
-		address _stakeManager,
-		address _bnbERC20,
-		address _bnbX,
-		address _manager
-	) external initializer {
-		__AccessControl_init();
-		__Pausable_init();
+        _setupRole(DEFAULT_ADMIN_ROLE, _manager);
+    }
 
-		stakeManager = _stakeManager;
-		bnbERC20 = _bnbERC20;
-		bnbX = _bnbX;
+    /// @notice Allows an operator that was already staked on the bnb stake manager
+    /// to join the bnbX protocol.
+    /// @param _operator address of the operator.
+    function addOperator(address _operator)
+        external
+        override
+        whenNotPaused
+        whenOperatorDoesNotExist(_operator)
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        (uint256 createdTime, bool jailed, ) = STAKEHUB.getValidatorBasicInfo(_operator);
+        require(
+            createdTime > 0,
+            "Operator is not registered on STAKEHUB"
+        );
+        require(
+            jailed == true,
+            "Operator is jailed"
+        );
 
-		_setupRole(DEFAULT_ADMIN_ROLE, _manager);
-	}
+        operators.push(_operator);
+        operatorExists[_operator] = true;
 
-	/// ----------------------------- API --------------------------------------
+        emit AddOperator(_operator);
+    }
 
-	/// @notice Allows a validator that was already staked on the bnb stake manager
-	/// to join the bnbX protocol.
-	/// @param _validatorId id of the validator.
-	function addValidator(uint256 _validatorId)
-		external
-		override
-		whenNotPaused
-		whenValidatorIdDoesNotExist(_validatorId)
-		onlyRole(DEFAULT_ADMIN_ROLE)
-	{
-		IStakeManager.Validator memory smValidator = IStakeManager(stakeManager)
-			.validators(_validatorId);
+    /// @notice Allows to remove an operator from the registry.
+    /// @param _operator address of the operator.
+    function removeOperator(address _operator)
+        external
+        override
+        whenNotPaused
+        whenOperatorDoesExist(_operator)
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        require(
+            preferredDepositOperator != _operator,
+            "Can't remove a preferred operator for deposits"
+        );
+        require(
+            preferredWithdrawalOperator != _operator,
+            "Can't remove a preferred operator for withdrawals"
+        );
 
-		require(
-			smValidator.contractAddress != address(0),
-			"Validator has no ValidatorShare"
-		);
-		require(
-			(smValidator.status == IStakeManager.Status.Active) &&
-				smValidator.deactivationEpoch == 0,
-			"Validator isn't ACTIVE"
-		);
+        // TODO: Check remaining shares
+        // TODO: Migrate remaining shares
 
-		validators.push(_validatorId);
-		validatorIdExists[_validatorId] = true;
+        delete operatorExists[_operator];
 
-		emit AddValidator(_validatorId);
-	}
+        emit RemoveOperator(_operator);
+    }
 
-	/// @notice Allows to remove an validator from the registry.
-	/// @param _validatorId the validator id.
-	function removeValidator(uint256 _validatorId)
-		external
-		override
-		whenNotPaused
-		whenValidatorIdExists(_validatorId)
-		onlyRole(DEFAULT_ADMIN_ROLE)
-	{
-		require(
-			preferredDepositValidatorId != _validatorId,
-			"Can't remove a preferred validator for deposits"
-		);
-		require(
-			preferredWithdrawalValidatorId != _validatorId,
-			"Can't remove a preferred validator for withdrawals"
-		);
+    /// @notice Allows to set the preferred operator for deposits
+    /// @param _operator address of the operator.
+    function setPreferredDepositOperator(address _operator)
+        external
+        override
+        whenNotPaused
+        whenOperatorDoesExist(_operator)
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        preferredDepositOperator = _operator;
 
-		address validatorShare = IStakeManager(stakeManager)
-			.getValidatorContract(_validatorId);
-		(uint256 validatorBalance, ) = IValidatorShare(validatorShare)
-			.getTotalStake(bnbX);
-		require(validatorBalance == 0, "Validator has some shares left");
+        emit SetPreferredDepositOperator(preferredDepositOperator);
+    }
 
-		// swap with the last item and pop it.
-		uint256 validatorsLength = validators.length;
-		for (uint256 idx = 0; idx < validatorsLength - 1; ++idx) {
-			if (_validatorId == validators[idx]) {
-				validators[idx] = validators[validatorsLength - 1];
-				break;
-			}
-		}
-		validators.pop();
+    /// @notice Allows to set the preferred operator for withdrawals
+    /// @param _operator address of the operator.
+    function setPreferredWithdrawalOperator(address _operator)
+        external
+        override
+        whenNotPaused
+        whenOperatorDoesExist(_operator)
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        preferredWithdrawalOperator = _operator;
 
-		delete validatorIdExists[_validatorId];
+        emit SetPreferredWithdrawalOperator(_operator);
+    }
 
-		emit RemoveValidator(_validatorId);
-	}
+    /// @notice Allows to pause the contract.
+    function togglePause() external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        paused() ? _unpause() : _pause();
+    }
 
-	/// -------------------------------Setters-----------------------------------
+    /// -------------------------------Getters-----------------------------------
 
-	/// @notice Allows to set the preffered validator id for deposits
-	/// @param _validatorId the validator id.
-	function setPreferredDepositValidatorId(uint256 _validatorId)
-		external
-		override
-		whenNotPaused
-		whenValidatorIdExists(_validatorId)
-		onlyRole(BOT)
-	{
-		preferredDepositValidatorId = _validatorId;
+    /// @notice Get operator address by its index.
+    /// @param _index operator index
+    /// @return _operator the operator address.
+    function getOperator(uint256 _index)
+        external
+        view
+        override
+        returns (address)
+    {
+        return operators[_index];
+    }
 
-		emit SetPreferredDepositValidatorId(_validatorId);
-	}
+    /// @notice Get operators.
+    /// @return _operators the operators.
+    function getOperators() external view override returns (address[] memory) {
+        return operators;
+    }
 
-	/// @notice Allows to set the preffered validator id for withdrawals
-	/// @param _validatorId the validator id.
-	function setPreferredWithdrawalValidatorId(uint256 _validatorId)
-		external
-		override
-		whenNotPaused
-		whenValidatorIdExists(_validatorId)
-		onlyRole(BOT)
-	{
-		preferredWithdrawalValidatorId = _validatorId;
+    /// -------------------------------Modifiers-----------------------------------
 
-		emit SetPreferredWithdrawalValidatorId(_validatorId);
-	}
+    /**
+     * @dev Modifier to make a function callable only when the operator exists in our registry.
+     * @param _operator the operator address.
+     * Requirements:
+     *
+     * - The operator must exist in our registry.
+     */
+    modifier whenOperatorDoesExist(address _operator) {
+        require(
+            operatorExists[_operator] == true,
+            "Operator doesn't exist in our registry"
+        );
+        _;
+    }
 
-	/// @notice Allows to set the bnbX contract address.
-	function setbnbX(address _bnbX)
-		external
-		override
-		onlyRole(DEFAULT_ADMIN_ROLE)
-	{
-		bnbX = _bnbX;
-
-		emit SetbnbX(_bnbX);
-	}
-
-	/// @notice Allows to set the contract version.
-	/// @param _version contract version
-	function setVersion(string memory _version)
-		external
-		override
-		onlyRole(DEFAULT_ADMIN_ROLE)
-	{
-		version = _version;
-
-		emit SetVersion(_version);
-	}
-
-	/// @notice Allows to pause the contract.
-	function togglePause() external override onlyRole(DEFAULT_ADMIN_ROLE) {
-		paused() ? _unpause() : _pause();
-	}
-
-	/// -------------------------------Getters-----------------------------------
-
-	/// @notice Get the bnbX contract addresses
-	/// @return _stakeManager address of the bnb stake manager.
-	/// @return _bnbERC20 address of the bnb ERC20 contract.
-	/// @return _bnbX address of the bnbX contract.
-	function getContracts()
-		external
-		view
-		override
-		returns (
-			address _stakeManager,
-			address _bnbERC20,
-			address _bnbX
-		)
-	{
-		_stakeManager = stakeManager;
-		_bnbERC20 = bnbERC20;
-		_bnbX = bnbX;
-	}
-
-	/// @notice Get validator id by its index.
-	/// @param _index validator index
-	/// @return _validatorId the validator id.
-	function getValidatorId(uint256 _index)
-		external
-		view
-		override
-		returns (uint256)
-	{
-		return validators[_index];
-	}
-
-	/// @notice Get validators.
-	/// @return _validators the validators.
-	function getValidators() external view override returns (uint256[] memory) {
-		return validators;
-	}
-
-	/// -------------------------------Modifiers-----------------------------------
-
-	/**
-	 * @dev Modifier to make a function callable only when the validator id exists in our registry.
-	 * @param _validatorId the validator id.
-	 * Requirements:
-	 *
-	 * - The validator id must exist in our registry.
-	 */
-	modifier whenValidatorIdExists(uint256 _validatorId) {
-		require(
-			validatorIdExists[_validatorId] == true,
-			"Validator id doesn't exist in our registry"
-		);
-		_;
-	}
-
-	/**
-	 * @dev Modifier to make a function callable only when the validator id doesn't exist in our registry.
-	 * @param _validatorId the validator id.
-	 *
-	 * Requirements:
-	 *
-	 * - The validator id must not exist in our registry.
-	 */
-	modifier whenValidatorIdDoesNotExist(uint256 _validatorId) {
-		require(
-			validatorIdExists[_validatorId] == false,
-			"Validator id already exists in our registry"
-		);
-		_;
-	}
+    /**
+     * @dev Modifier to make a function callable only when the operator doesn't exist in our registry.
+     * @param _operator the operator address.
+     *
+     * Requirements:
+     *
+     * - The operator must not exist in our registry.
+     */
+    modifier whenOperatorDoesNotExist(address _operator) {
+        require(
+            operatorExists[_operator] == false,
+            "Operator already exists in our registry"
+        );
+        _;
+    }
 }

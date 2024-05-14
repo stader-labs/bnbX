@@ -1,51 +1,21 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity 0.8.25;
+pragma solidity ^0.8.24 < 0.9.0;
 
 /// @title IOperatorRegistry
-/// @notice Node validator registry interface
+/// @notice Node Operator registry interface
 interface IOperatorRegistry {
-	function addValidator(uint256 _validatorId) external;
+    event AddOperator(address indexed _operator);
+    event RemoveOperator(address indexed _operator);
+    event SetPreferredDepositOperator(address indexed _operator);
+    event SetPreferredWithdrawalOperator(address indexed _operator);
 
-	function removeValidator(uint256 _validatorId) external;
-
-	function setPreferredDepositValidatorId(uint256 _validatorId) external;
-
-	function setPreferredWithdrawalValidatorId(uint256 _validatorId) external;
-
-	function setbnbX(address _bnbX) external;
-
-	function setVersion(string memory _version) external;
-
-	function togglePause() external;
-
-	function version() external view returns (string memory);
-
-	function preferredDepositValidatorId() external view returns (uint256);
-
-	function preferredWithdrawalValidatorId() external view returns (uint256);
-
-	function validatorIdExists(uint256 _validatorId)
-		external
-		view
-		returns (bool);
-
-	function getContracts()
-		external
-		view
-		returns (
-			address _stakeManager,
-			address _polygonERC20,
-			address _bnbX
-		);
-
-	function getValidatorId(uint256 _index) external view returns (uint256);
-
-	function getValidators() external view returns (uint256[] memory);
-
-	event AddValidator(uint256 indexed _validatorId);
-	event RemoveValidator(uint256 indexed _validatorId);
-	event SetPreferredDepositValidatorId(uint256 indexed _validatorId);
-	event SetPreferredWithdrawalValidatorId(uint256 indexed _validatorId);
-	event SetbnbX(address _address);
-	event SetVersion(string _version);
+    function preferredDepositOperator() external view returns(address);
+    function preferredWithdrawalOperator() external view returns(address);
+    function getOperator(uint256) external view returns (address);
+    function getOperators() external view returns (address[] memory);
+    function addOperator(address _operatorId) external;
+    function removeOperator(address _operatorId) external;
+    function setPreferredDepositOperator(address _operatorId) external;
+    function setPreferredWithdrawalOperator(address _operatorId) external;
+    function togglePause() external;
 }
