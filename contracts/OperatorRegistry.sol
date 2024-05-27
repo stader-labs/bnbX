@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.24 < 0.9.0;
+pragma solidity ^0.8.24 <0.9.0;
 
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 
 import "./interfaces/IOperatorRegistry.sol";
 import "./interfaces/IStakeHub.sol";
+import "./interfaces/IStakeCredit.sol";
 
 /// @title OperatorRegistry
 /// @notice OperatorRegistry is the main contract that manages operators
@@ -16,88 +18,83 @@ contract OperatorRegistry is
     AccessControlUpgradeable,
     ReentrancyGuardUpgradeable
 {
-    IStakeHub public STAKEHUB;
-    address public BNBX;
+    using EnumerableSet for EnumerableSet.AddressSet;
+
+    IStakeHub public constant STAKE_HUB =
+        IStakeHub(0x0000000000000000000000000000000000002002);
+    address public stakeManager;
 
     address public override preferredDepositOperator;
     address public override preferredWithdrawalOperator;
-    mapping(address => bool) public operatorExists;
 
-    address[] private operators;
+    EnumerableSet.AddressSet private operatorSet;
 
     /// @notice Initialize the OperatorRegistry contract.
-    /// @param _stakeHub address of the stake hub contract.
-    /// @param _bnbX address of the bnbX contract.
-    /// @param _manager address of the manager.
-    function initialize(
-        address _stakeHub,
-        address _bnbX,
-        address _manager
-    ) external initializer {
+    function initialize() external initializer {
         __AccessControl_init();
         __Pausable_init();
 
-        STAKEHUB = IStakeHub(_stakeHub);
-        BNBX = _bnbX;
+        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    }
 
-        _setupRole(DEFAULT_ADMIN_ROLE, _manager);
+    function setStakeManager(address _stakeManager) external {
+        stakeManager = _stakeManager;
     }
 
     /// @notice Allows an operator that was already staked on the bnb stake manager
     /// to join the bnbX protocol.
     /// @param _operator address of the operator.
-    function addOperator(address _operator)
+    function addOperator(
+        address _operator
+    )
         external
         override
         whenNotPaused
         whenOperatorDoesNotExist(_operator)
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        (uint256 createdTime, bool jailed, ) = STAKEHUB.getValidatorBasicInfo(_operator);
-        require(
-            createdTime > 0,
-            "Operator is not registered on STAKEHUB"
+        (uint256 createdTime, bool jailed, ) = STAKE_HUB.getValidatorBasicInfo(
+            _operator
         );
-        require(
-            jailed == true,
-            "Operator is jailed"
-        );
+        if (createdTime == 0) revert OperatorNotExisted();
+        if (jailed) revert OperatorJailed();
 
-        operators.push(_operator);
-        operatorExists[_operator] = true;
+        operatorSet.add(_operator);
 
         emit AddOperator(_operator);
     }
 
     /// @notice Allows to remove an operator from the registry.
     /// @param _operator address of the operator.
-    function removeOperator(address _operator)
+    function removeOperator(
+        address _operator
+    )
         external
         override
         whenNotPaused
         whenOperatorDoesExist(_operator)
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
-        require(
-            preferredDepositOperator != _operator,
-            "Can't remove a preferred operator for deposits"
-        );
-        require(
-            preferredWithdrawalOperator != _operator,
-            "Can't remove a preferred operator for withdrawals"
-        );
+        if (preferredDepositOperator == _operator)
+            revert OperatorIsPreferredDeposit();
+        if (preferredWithdrawalOperator == _operator)
+            revert OperatorIsPreferredWithdrawal();
 
-        // TODO: Check remaining shares
-        // TODO: Migrate remaining shares
+        if (
+            IStakeCredit(STAKE_HUB.getValidatorCreditContract(_operator))
+                .getPooledBNB(address(this)) != 0
+        ) revert DelegationExists();
 
-        delete operatorExists[_operator];
+        operatorSet.remove(_operator);
 
         emit RemoveOperator(_operator);
     }
 
     /// @notice Allows to set the preferred operator for deposits
     /// @param _operator address of the operator.
-    function setPreferredDepositOperator(address _operator)
+    function setPreferredDepositOperator(
+        address _operator
+    )
         external
         override
         whenNotPaused
@@ -111,7 +108,9 @@ contract OperatorRegistry is
 
     /// @notice Allows to set the preferred operator for withdrawals
     /// @param _operator address of the operator.
-    function setPreferredWithdrawalOperator(address _operator)
+    function setPreferredWithdrawalOperator(
+        address _operator
+    )
         external
         override
         whenNotPaused
@@ -133,19 +132,20 @@ contract OperatorRegistry is
     /// @notice Get operator address by its index.
     /// @param _index operator index
     /// @return _operator the operator address.
-    function getOperator(uint256 _index)
-        external
-        view
-        override
-        returns (address)
-    {
-        return operators[_index];
+    function getOperatorAt(
+        uint256 _index
+    ) external view override returns (address) {
+        return operatorSet.at(_index);
     }
 
-    /// @notice Get operators.
-    /// @return _operators the operators.
-    function getOperators() external view override returns (address[] memory) {
-        return operators;
+    function getOperatorsLength() external view override returns (uint256) {
+        return operatorSet.length();
+    }
+
+    function operatorExists(
+        address _operator
+    ) external view override returns (bool) {
+        return operatorSet.contains(_operator);
     }
 
     /// -------------------------------Modifiers-----------------------------------
@@ -158,10 +158,7 @@ contract OperatorRegistry is
      * - The operator must exist in our registry.
      */
     modifier whenOperatorDoesExist(address _operator) {
-        require(
-            operatorExists[_operator] == true,
-            "Operator doesn't exist in our registry"
-        );
+        if (!operatorSet.contains(_operator)) revert OperatorNotExisted();
         _;
     }
 
@@ -174,10 +171,7 @@ contract OperatorRegistry is
      * - The operator must not exist in our registry.
      */
     modifier whenOperatorDoesNotExist(address _operator) {
-        require(
-            operatorExists[_operator] == false,
-            "Operator already exists in our registry"
-        );
+        if (operatorSet.contains(_operator)) revert OperatorExisted();
         _;
     }
 }

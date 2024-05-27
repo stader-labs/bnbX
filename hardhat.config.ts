@@ -10,6 +10,7 @@ import "@openzeppelin/hardhat-defender";
 import "hardhat-gas-reporter";
 import "solidity-coverage";
 import "hardhat-forta";
+import "@nomiclabs/hardhat-solhint";
 
 import {
   DEPLOYER_PRIVATE_KEY,

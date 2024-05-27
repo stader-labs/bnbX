@@ -6,9 +6,10 @@ interface IStakeHub {
      * @param operatorAddress the operator address of the validator to be delegated to
      * @param delegateVotePower whether to delegate vote power to the validator
      */
-    function delegate(address operatorAddress, bool delegateVotePower)
-        external
-        payable;
+    function delegate(
+        address operatorAddress,
+        bool delegateVotePower
+    ) external payable;
 
     /**
      * @dev Undelegate BNB from a validator, fund is only claimable few days later
@@ -37,12 +38,11 @@ interface IStakeHub {
      *
      * @return creditContract the credit contract address of the validator
      */
-    function getValidatorCreditContract(address operatorAddress)
-        external
-        view
-        returns (address creditContract);
-    
-     /**
+    function getValidatorCreditContract(
+        address operatorAddress
+    ) external view returns (address creditContract);
+
+    /**
      * @notice get the basic info of a validator
      *
      * @param operatorAddress the operator address of the validator
@@ -51,8 +51,21 @@ interface IStakeHub {
      * @return jailed whether the validator is jailed
      * @return jailUntil the jail time of the validator
      */
-    function getValidatorBasicInfo(address operatorAddress)
+    function getValidatorBasicInfo(
+        address operatorAddress
+    )
         external
         view
         returns (uint256 createdTime, bool jailed, uint256 jailUntil);
+
+    /**
+     * @dev Claim the undelegated BNB from the pool after unbondPeriod
+     * @param operatorAddress the operator address of the validator
+     * @param requestNumber the request number of the undelegation. 0 means claim all
+     */
+    function claim(address operatorAddress, uint256 requestNumber) external;
+
+    function unbondPeriod() external view returns (uint256);
+    function transferGasLimit() external view returns (uint256);
+    function minDelegationBNBChange() external view returns (uint256);
 }
