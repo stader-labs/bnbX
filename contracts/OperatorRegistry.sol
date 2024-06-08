@@ -11,7 +11,7 @@ import "./interfaces/IStakeHub.sol";
 import "./interfaces/IStakeCredit.sol";
 
 /// @title OperatorRegistry
-/// @notice OperatorRegistry is the main contract that manages operators
+/// @notice OperatorRegistry is the main contract that manages operators.
 contract OperatorRegistry is
     IOperatorRegistry,
     PausableUpgradeable,
@@ -22,37 +22,40 @@ contract OperatorRegistry is
 
     IStakeHub public constant STAKE_HUB =
         IStakeHub(0x0000000000000000000000000000000000002002);
-    address public stakeManager;
-
     address public override preferredDepositOperator;
     address public override preferredWithdrawalOperator;
 
     EnumerableSet.AddressSet private operatorSet;
 
+    // @custom:oz-upgrades-unsafe-allow constructor
+    constructor() {
+        _disableInitializers();
+    }
+
     /// @notice Initialize the OperatorRegistry contract.
     function initialize() external initializer {
         __AccessControl_init();
         __Pausable_init();
+        __ReentrancyGuard_init();
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
     }
 
-    function setStakeManager(address _stakeManager) external {
-        stakeManager = _stakeManager;
-    }
-
-    /// @notice Allows an operator that was already staked on the bnb stake manager
-    /// to join the bnbX protocol.
-    /// @param _operator address of the operator.
+    /// @notice Allows an operator that was already staked on the BNB stake manager
+    /// to join the BNBX protocol.
+    /// @param _operator Address of the operator.
     function addOperator(
         address _operator
     )
         external
         override
         whenNotPaused
+        nonReentrant
         whenOperatorDoesNotExist(_operator)
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
+        if (_operator == address(0)) revert ZeroAddress();
+
         (uint256 createdTime, bool jailed, ) = STAKE_HUB.getValidatorBasicInfo(
             _operator
         );
@@ -61,20 +64,22 @@ contract OperatorRegistry is
 
         operatorSet.add(_operator);
 
-        emit AddOperator(_operator);
+        emit AddedOperator(_operator);
     }
 
     /// @notice Allows to remove an operator from the registry.
-    /// @param _operator address of the operator.
+    /// @param _operator Address of the operator.
     function removeOperator(
         address _operator
     )
         external
         override
         whenNotPaused
+        nonReentrant
         whenOperatorDoesExist(_operator)
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
+        if (_operator == address(0)) revert ZeroAddress();
         if (preferredDepositOperator == _operator)
             revert OperatorIsPreferredDeposit();
         if (preferredWithdrawalOperator == _operator)
@@ -87,39 +92,45 @@ contract OperatorRegistry is
 
         operatorSet.remove(_operator);
 
-        emit RemoveOperator(_operator);
+        emit RemovedOperator(_operator);
     }
 
-    /// @notice Allows to set the preferred operator for deposits
-    /// @param _operator address of the operator.
+    /// @notice Allows to set the preferred operator for deposits.
+    /// @param _operator Address of the operator.
     function setPreferredDepositOperator(
         address _operator
     )
         external
         override
         whenNotPaused
+        nonReentrant
         whenOperatorDoesExist(_operator)
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
+        if (_operator == address(0)) revert ZeroAddress();
+
         preferredDepositOperator = _operator;
 
         emit SetPreferredDepositOperator(preferredDepositOperator);
     }
 
-    /// @notice Allows to set the preferred operator for withdrawals
-    /// @param _operator address of the operator.
+    /// @notice Allows to set the preferred operator for withdrawals.
+    /// @param _operator Address of the operator.
     function setPreferredWithdrawalOperator(
         address _operator
     )
         external
         override
         whenNotPaused
+        nonReentrant
         whenOperatorDoesExist(_operator)
         onlyRole(DEFAULT_ADMIN_ROLE)
     {
+        if (_operator == address(0)) revert ZeroAddress();
+
         preferredWithdrawalOperator = _operator;
 
-        emit SetPreferredWithdrawalOperator(_operator);
+        emit SetPreferredWithdrawalOperator(preferredWithdrawalOperator);
     }
 
     /// @notice Allows to pause the contract.
@@ -130,18 +141,23 @@ contract OperatorRegistry is
     /// -------------------------------Getters-----------------------------------
 
     /// @notice Get operator address by its index.
-    /// @param _index operator index
-    /// @return _operator the operator address.
+    /// @param _index Operator index.
+    /// @return _operator The operator address.
     function getOperatorAt(
         uint256 _index
     ) external view override returns (address) {
         return operatorSet.at(_index);
     }
 
+    /// @notice Get the total number of operators.
+    /// @return The number of operators.
     function getOperatorsLength() external view override returns (uint256) {
         return operatorSet.length();
     }
 
+    /// @notice Check if an operator exists in the registry.
+    /// @param _operator Address of the operator.
+    /// @return True if the operator exists, false otherwise.
     function operatorExists(
         address _operator
     ) external view override returns (bool) {
@@ -151,11 +167,11 @@ contract OperatorRegistry is
     /// -------------------------------Modifiers-----------------------------------
 
     /**
-     * @dev Modifier to make a function callable only when the operator exists in our registry.
-     * @param _operator the operator address.
+     * @dev Modifier to make a function callable only when the operator exists in the registry.
+     * @param _operator The operator address.
      * Requirements:
      *
-     * - The operator must exist in our registry.
+     * - The operator must exist in the registry.
      */
     modifier whenOperatorDoesExist(address _operator) {
         if (!operatorSet.contains(_operator)) revert OperatorNotExisted();
@@ -163,12 +179,12 @@ contract OperatorRegistry is
     }
 
     /**
-     * @dev Modifier to make a function callable only when the operator doesn't exist in our registry.
-     * @param _operator the operator address.
+     * @dev Modifier to make a function callable only when the operator doesn't exist in the registry.
+     * @param _operator The operator address.
      *
      * Requirements:
      *
-     * - The operator must not exist in our registry.
+     * - The operator must not exist in the registry.
      */
     modifier whenOperatorDoesNotExist(address _operator) {
         if (operatorSet.contains(_operator)) revert OperatorExisted();

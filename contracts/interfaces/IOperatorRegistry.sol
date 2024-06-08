@@ -10,9 +10,10 @@ interface IOperatorRegistry {
     error OperatorIsPreferredDeposit();
     error OperatorIsPreferredWithdrawal();
     error DelegationExists();
+    error ZeroAddress();
 
-    event AddOperator(address indexed _operator);
-    event RemoveOperator(address indexed _operator);
+    event AddedOperator(address indexed _operator);
+    event RemovedOperator(address indexed _operator);
     event SetPreferredDepositOperator(address indexed _operator);
     event SetPreferredWithdrawalOperator(address indexed _operator);
 
