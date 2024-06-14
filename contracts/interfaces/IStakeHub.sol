@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.25;
 
 interface IStakeHub {
     /**
@@ -66,6 +66,5 @@ interface IStakeHub {
     function claim(address operatorAddress, uint256 requestNumber) external;
 
     function unbondPeriod() external view returns (uint256);
-    function transferGasLimit() external view returns (uint256);
     function minDelegationBNBChange() external view returns (uint256);
 }

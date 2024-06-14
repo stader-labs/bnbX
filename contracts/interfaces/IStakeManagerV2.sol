@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.24 <0.9.0;
+pragma solidity ^0.8.25;
 
 struct WithdrawalRequest {
     uint256 shares;
@@ -29,8 +29,6 @@ interface IStakeManagerV2 {
     ) external;
     function togglePause() external;
     function delegateWithoutMinting() external payable;
-    function setOperatorRegistry(address _operatorRegistry) external;
-    function setBnbX(address _bnbX) external;
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
     function convertBnbXToBnb(
         uint256 _amountInBnbX
@@ -55,6 +53,4 @@ interface IStakeManagerV2 {
         address indexed _toOperator,
         uint256 _amountInBnb
     );
-    event OperatorRegistryUpdated(address indexed _operatorRegistry);
-    event BnbXUpdated(address indexed _bnbx);
 }

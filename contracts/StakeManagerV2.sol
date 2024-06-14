@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.24 <0.9.0;
+pragma solidity 0.8.25;
 
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
@@ -21,8 +21,8 @@ contract StakeManagerV2 is
 {
     IStakeHub public constant STAKE_HUB =
         IStakeHub(0x0000000000000000000000000000000000002002);
-    IOperatorRegistry public operatorRegistry;
-    IBnbX public bnbX;
+    IOperatorRegistry public OPERATOR_REGISTRY;
+    IBnbX public BNBX;
 
     mapping(address => WithdrawalRequest[]) private userWithdrawalRequests;
 
@@ -47,11 +47,8 @@ contract StakeManagerV2 is
 
         _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
 
-        operatorRegistry = IOperatorRegistry(_operatorRegistry);
-        bnbX = IBnbX(_bnbX);
-
-        emit OperatorRegistryUpdated(address(operatorRegistry));
-        emit BnbXUpdated(address(bnbX));
+        OPERATOR_REGISTRY = IOperatorRegistry(_operatorRegistry);
+        BNBX = IBnbX(_bnbX);
     }
 
     /// @notice Delegate BNB to the preferred operator.
@@ -68,9 +65,9 @@ contract StakeManagerV2 is
             revert DelegationAmountTooSmall();
 
         uint256 amountToMint = convertBnbToBnbX(msg.value);
-        bnbX.mint(msg.sender, amountToMint);
+        BNBX.mint(msg.sender, amountToMint);
 
-        address preferredOperatorAddress = operatorRegistry
+        address preferredOperatorAddress = OPERATOR_REGISTRY
             .preferredDepositOperator();
         STAKE_HUB.delegate{value: msg.value}(preferredOperatorAddress, true);
 
@@ -88,11 +85,11 @@ contract StakeManagerV2 is
 
         uint256 totalAmount2WithdrawInBnb = convertBnbXToBnb(_amount);
         uint256 leftAmount2WithdrawInBnb = totalAmount2WithdrawInBnb;
-        bnbX.burn(msg.sender, _amount);
+        BNBX.burn(msg.sender, _amount);
 
-        address preferredOperator = operatorRegistry
+        address preferredOperator = OPERATOR_REGISTRY
             .preferredWithdrawalOperator();
-        uint256 operatorsLength = operatorRegistry.getOperatorsLength();
+        uint256 operatorsLength = OPERATOR_REGISTRY.getOperatorsLength();
         if (operatorsLength == 0) revert NoOperatorsAvailable();
 
         uint256 currentIdx = findOperatorIndex(
@@ -102,7 +99,7 @@ contract StakeManagerV2 is
 
         while (leftAmount2WithdrawInBnb > 0) {
             leftAmount2WithdrawInBnb -= _undelegate(
-                operatorRegistry.getOperatorAt(currentIdx),
+                OPERATOR_REGISTRY.getOperatorAt(currentIdx),
                 leftAmount2WithdrawInBnb
             );
 
@@ -139,11 +136,7 @@ contract StakeManagerV2 is
         userRequests[_idx] = userRequests[userRequests.length - 1];
         userRequests.pop();
 
-        uint256 _gasLimit = STAKE_HUB.transferGasLimit();
-        (bool success, ) = payable(msg.sender).call{
-            gas: _gasLimit,
-            value: amountToClaim
-        }("");
+        (bool success, ) = payable(msg.sender).call{value: amountToClaim}("");
         if (!success) revert TransferFailed();
 
         emit ClaimedWithdrawal(msg.sender, _idx, amountToClaim);
@@ -161,9 +154,10 @@ contract StakeManagerV2 is
     ) external override nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_fromOperator == address(0)) revert ZeroAddress();
         if (_toOperator == address(0)) revert ZeroAddress();
-        if (!operatorRegistry.operatorExists(_fromOperator))
+        if (_fromOperator == _toOperator) revert InvalidIndex();
+        if (!OPERATOR_REGISTRY.operatorExists(_fromOperator))
             revert OperatorNotExisted();
-        if (!operatorRegistry.operatorExists(_toOperator))
+        if (!OPERATOR_REGISTRY.operatorExists(_toOperator))
             revert OperatorNotExisted();
         if (_amount < STAKE_HUB.minDelegationBNBChange())
             revert DelegationAmountTooSmall();
@@ -189,34 +183,13 @@ contract StakeManagerV2 is
     {
         if (msg.value < STAKE_HUB.minDelegationBNBChange())
             revert DelegationAmountTooSmall();
+        if (BNBX.totalSupply() == 0) revert ZeroAmount();
 
-        address preferredOperatorAddress = operatorRegistry
+        address preferredOperatorAddress = OPERATOR_REGISTRY
             .preferredDepositOperator();
         STAKE_HUB.delegate{value: msg.value}(preferredOperatorAddress, true);
 
         emit Delegated(preferredOperatorAddress, msg.value);
-    }
-
-    /// @notice Set the operator registry address.
-    /// @param _operatorRegistry The new operator registry address.
-    function setOperatorRegistry(
-        address _operatorRegistry
-    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_operatorRegistry == address(0)) revert ZeroAddress();
-
-        operatorRegistry = IOperatorRegistry(_operatorRegistry);
-        emit OperatorRegistryUpdated(address(operatorRegistry));
-    }
-
-    /// @notice Set the BnbX address.
-    /// @param _bnbX The new BnbX address.
-    function setBnbX(
-        address _bnbX
-    ) external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_bnbX == address(0)) revert ZeroAddress();
-
-        bnbX = IBnbX(_bnbX);
-        emit BnbXUpdated(address(bnbX));
     }
 
     /// @notice Pause or unpause the contract.
@@ -239,25 +212,29 @@ contract StakeManagerV2 is
             address(this)
         );
 
-        uint256 amount2WithdrawFromOperator = (pooledBnb <= _amount)
+        if (pooledBnb == 0) {
+            return _amount;
+        }
+
+        uint256 amountToWithdrawFromOperator = (pooledBnb <= _amount)
             ? pooledBnb
             : _amount;
 
         uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(
-            amount2WithdrawFromOperator
+            amountToWithdrawFromOperator
         );
         STAKE_HUB.undelegate(_operator, shares);
 
         userWithdrawalRequests[msg.sender].push(
             WithdrawalRequest({
                 shares: shares,
-                bnbAmount: amount2WithdrawFromOperator,
+                bnbAmount: amountToWithdrawFromOperator,
                 unlockTime: block.timestamp + STAKE_HUB.unbondPeriod(),
                 operator: _operator
             })
         );
 
-        return amount2WithdrawFromOperator;
+        return amountToWithdrawFromOperator;
     }
 
     function getUserWithdrawalRequests(
@@ -272,7 +249,7 @@ contract StakeManagerV2 is
     function convertBnbToBnbX(
         uint256 _amount
     ) public view override returns (uint256) {
-        uint256 totalShares = bnbX.totalSupply();
+        uint256 totalShares = BNBX.totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
         uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
@@ -287,11 +264,10 @@ contract StakeManagerV2 is
     function convertBnbXToBnb(
         uint256 _amountInBnbX
     ) public view override returns (uint256) {
-        uint256 totalShares = bnbX.totalSupply();
+        uint256 totalShares = BNBX.totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
         uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
-        totalPooledBnb = totalPooledBnb == 0 ? 1 : totalPooledBnb;
 
         return (_amountInBnbX * totalPooledBnb) / totalShares;
     }
@@ -300,10 +276,10 @@ contract StakeManagerV2 is
     /// @return The total stake in BNB.
     function getTotalStakeAcrossAllOperators() public view returns (uint256) {
         uint256 totalStake;
-        uint256 operatorsLength = operatorRegistry.getOperatorsLength();
+        uint256 operatorsLength = OPERATOR_REGISTRY.getOperatorsLength();
         for (uint256 i; i < operatorsLength; ++i) {
             address creditContract = STAKE_HUB.getValidatorCreditContract(
-                operatorRegistry.getOperatorAt(i)
+                OPERATOR_REGISTRY.getOperatorAt(i)
             );
 
             totalStake += IStakeCredit(creditContract).getPooledBNB(
@@ -322,7 +298,7 @@ contract StakeManagerV2 is
         uint256 operatorsLength
     ) internal view returns (uint256) {
         for (uint256 i = 0; i < operatorsLength; ++i) {
-            if (operator == operatorRegistry.getOperatorAt(i)) {
+            if (operator == OPERATOR_REGISTRY.getOperatorAt(i)) {
                 return i;
             }
         }
