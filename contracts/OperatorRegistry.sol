@@ -20,6 +20,9 @@ contract OperatorRegistry is
 {
     using EnumerableSet for EnumerableSet.AddressSet;
 
+    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+
     IStakeHub public constant STAKE_HUB =
         IStakeHub(0x0000000000000000000000000000000000002002);
     address public override preferredDepositOperator;
@@ -52,7 +55,7 @@ contract OperatorRegistry is
         whenNotPaused
         nonReentrant
         whenOperatorDoesNotExist(_operator)
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRole(MANAGER_ROLE)
     {
         if (_operator == address(0)) revert ZeroAddress();
 
@@ -77,7 +80,7 @@ contract OperatorRegistry is
         whenNotPaused
         nonReentrant
         whenOperatorDoesExist(_operator)
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRole(MANAGER_ROLE)
     {
         if (_operator == address(0)) revert ZeroAddress();
         if (preferredDepositOperator == _operator)
@@ -105,7 +108,7 @@ contract OperatorRegistry is
         whenNotPaused
         nonReentrant
         whenOperatorDoesExist(_operator)
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRole(OPERATOR_ROLE)
     {
         if (_operator == address(0)) revert ZeroAddress();
 
@@ -124,7 +127,7 @@ contract OperatorRegistry is
         whenNotPaused
         nonReentrant
         whenOperatorDoesExist(_operator)
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRole(OPERATOR_ROLE)
     {
         if (_operator == address(0)) revert ZeroAddress();
 
