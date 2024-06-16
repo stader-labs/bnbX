@@ -19,14 +19,18 @@ contract StakeManagerV2 is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable
 {
+    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
     IStakeHub public constant STAKE_HUB =
         IStakeHub(0x0000000000000000000000000000000000002002);
     IOperatorRegistry public OPERATOR_REGISTRY;
     IBnbX public BNBX;
+    uint256 public nextUndelegateUUID;
+    uint256 public totalBnbXToBurn;
 
     mapping(address => WithdrawalRequest[]) private userWithdrawalRequests;
+    mapping(uint256 => BatchWithdrawalRequest[]) private uuidToBatchWithdrawalRequests;
 
     // @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -82,9 +86,35 @@ contract StakeManagerV2 is
     ) external override whenNotPaused nonReentrant returns (uint256) {
         if (_amount == 0) revert ZeroAmount();
 
+        totalBnbXToBurn += _amount;
         uint256 totalAmount2WithdrawInBnb = convertBnbXToBnb(_amount);
+
+        userWithdrawalRequests[msg.sender].push(
+            WithdrawalRequest({
+                uuid: nextUndelegateUUID,
+                amountInBnbX: _amount,
+                startTime: block.timestamp
+            })
+        );
         uint256 leftAmount2WithdrawInBnb = totalAmount2WithdrawInBnb;
         BNBX.burn(msg.sender, _amount);
+
+        return totalAmount2WithdrawInBnb;
+    }
+
+    function startUndelegation()
+        external
+        override
+        whenNotPaused
+        nonReentrant
+        onlyRole(OPERATOR_ROLE)
+        returns (uint256 _uuid, uint256 _amount)
+    {
+        uint256 uuid = nextUndelegateUUID++; // post-increment : assigns the current value first and then increments
+        uint256 totalAmount2WithdrawInBnb = convertBnbXToBnb(totalBnbXToBurn);
+        uint256 leftAmount2WithdrawInBnb = totalAmount2WithdrawInBnb;
+
+        BNBX.burn(address(this), totalBnbXToBurn);
 
         address preferredOperator = OPERATOR_REGISTRY
             .preferredWithdrawalOperator();
@@ -99,18 +129,16 @@ contract StakeManagerV2 is
         while (leftAmount2WithdrawInBnb > 0) {
             leftAmount2WithdrawInBnb -= _undelegate(
                 OPERATOR_REGISTRY.getOperatorAt(currentIdx),
-                leftAmount2WithdrawInBnb
+                leftAmount2WithdrawInBnb, 
+                uuid
             );
 
             currentIdx = currentIdx + 1 < operatorsLength ? currentIdx + 1 : 0;
         }
 
-        emit RequestedWithdrawal(
-            msg.sender,
-            _amount,
-            totalAmount2WithdrawInBnb
-        );
-        return totalAmount2WithdrawInBnb;
+        emit RequestedWithdrawal(totalBnbXToBurn, totalAmount2WithdrawInBnb);
+
+        totalBnbXToBurn = 0;
     }
 
     /// @notice Claims the withdrawn BNB after the unbonding period.
@@ -124,6 +152,11 @@ contract StakeManagerV2 is
         ];
         if (userRequests.length == 0) revert NoWithdrawalRequests();
         if (_idx >= userRequests.length) revert InvalidIndex();
+
+        uint256 totalBnbToWithdraw_ = botUndelegateRequest.amount;
+        uint256 totalBnbXToBurn_ = botUndelegateRequest.amountInBnbX;
+        uint256 amount = (totalBnbToWithdraw_ * amountInBnbX) /
+            totalBnbXToBurn_;
 
         WithdrawalRequest memory userRequest = userRequests[_idx];
         uint256 amountToClaim = userRequest.bnbAmount;
@@ -213,7 +246,8 @@ contract StakeManagerV2 is
     /// @return The amount of BNB actually undelegated.
     function _undelegate(
         address _operator,
-        uint256 _amount
+        uint256 _amount,
+        uint256 uuid
     ) internal returns (uint256) {
         address creditContract = STAKE_HUB.getValidatorCreditContract(
             _operator
@@ -235,8 +269,8 @@ contract StakeManagerV2 is
         );
         STAKE_HUB.undelegate(_operator, shares);
 
-        userWithdrawalRequests[msg.sender].push(
-            WithdrawalRequest({
+        uuidToBatchWithdrawalRequests[uuid].push(
+            BatchWithdrawalRequest({
                 shares: shares,
                 bnbAmount: amountToWithdrawFromOperator,
                 unlockTime: block.timestamp + STAKE_HUB.unbondPeriod(),

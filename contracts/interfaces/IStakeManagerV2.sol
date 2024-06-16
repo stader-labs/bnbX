@@ -1,7 +1,20 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.25;
 
+// struct WithdrawalRequest {
+//     uint256 shares;
+//     uint256 bnbAmount;
+//     uint256 unlockTime;
+//     address operator;
+// }
+
 struct WithdrawalRequest {
+    uint256 uuid;
+    uint256 amountInBnbX;
+    uint256 startTime;
+}
+
+struct BatchWithdrawalRequest {
     uint256 shares;
     uint256 bnbAmount;
     uint256 unlockTime;
