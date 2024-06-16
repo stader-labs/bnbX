@@ -52,15 +52,11 @@ contract StakeManagerV2 is
     }
 
     /// @notice Delegate BNB to the preferred operator.
+    /// @param _referralId referral id of KOL
     /// @return The amount of BnbX minted.
-    function delegate()
-        external
-        payable
-        override
-        whenNotPaused
-        nonReentrant
-        returns (uint256)
-    {
+    function delegate(
+        string calldata _referralId
+    ) external payable override whenNotPaused nonReentrant returns (uint256) {
         if (msg.value < STAKE_HUB.minDelegationBNBChange())
             revert DelegationAmountTooSmall();
 
@@ -72,6 +68,7 @@ contract StakeManagerV2 is
         STAKE_HUB.delegate{value: msg.value}(preferredOperatorAddress, true);
 
         emit Delegated(preferredOperatorAddress, msg.value);
+        emit DelegateReferral(msg.sender, msg.value, amountToMint, _referralId);
         return amountToMint;
     }
 
