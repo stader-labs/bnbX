@@ -19,6 +19,8 @@ contract StakeManagerV2 is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable
 {
+    bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
+
     IStakeHub public constant STAKE_HUB =
         IStakeHub(0x0000000000000000000000000000000000002002);
     IOperatorRegistry public OPERATOR_REGISTRY;
@@ -148,7 +150,7 @@ contract StakeManagerV2 is
         address _fromOperator,
         address _toOperator,
         uint256 _amount
-    ) external override nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
+    ) external override nonReentrant onlyRole(MANAGER_ROLE) {
         if (_fromOperator == address(0)) revert ZeroAddress();
         if (_toOperator == address(0)) revert ZeroAddress();
         if (_fromOperator == _toOperator) revert InvalidIndex();
@@ -171,12 +173,12 @@ contract StakeManagerV2 is
     /// @notice Delegate BNB to the preferred operator without minting BnbX.
     /// @dev This function is useful for boosting staking rewards and for initial
     ///      Fusion hardfork migration without affecting the token supply.
-    /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
+    /// @dev Can only be called by an address with the MANAGER_ROLE.
     function delegateWithoutMinting()
         external
         payable
         override
-        onlyRole(DEFAULT_ADMIN_ROLE)
+        onlyRole(MANAGER_ROLE)
     {
         if (msg.value < STAKE_HUB.minDelegationBNBChange())
             revert DelegationAmountTooSmall();
@@ -189,9 +191,20 @@ contract StakeManagerV2 is
         emit Delegated(preferredOperatorAddress, msg.value);
     }
 
-    /// @notice Pause or unpause the contract.
-    function togglePause() external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        paused() ? _unpause() : _pause();
+    /**
+     * @dev Triggers stopped state.
+     * Contract must not be paused
+     */
+    function pause() external override onlyRole(MANAGER_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @dev Returns to normal state.
+     * Contract must be paused
+     */
+    function unpause() external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
     }
 
     /// @notice Internal function to undelegate BNB from an operator.

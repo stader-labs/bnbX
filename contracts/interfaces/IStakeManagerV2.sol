@@ -29,8 +29,9 @@ interface IStakeManagerV2 {
         address _toOperator,
         uint256 _amount
     ) external;
-    function togglePause() external;
     function delegateWithoutMinting() external payable;
+    function pause() external;
+    function unpause() external;
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
     function convertBnbXToBnb(
         uint256 _amountInBnbX
