@@ -25,6 +25,7 @@ interface IOperatorRegistry {
     function removeOperator(address _operator) external;
     function setPreferredDepositOperator(address _operator) external;
     function setPreferredWithdrawalOperator(address _operator) external;
-    function togglePause() external;
+    function pause() external;
+    function unpause() external;
     function operatorExists(address _operator) external view returns (bool);
 }

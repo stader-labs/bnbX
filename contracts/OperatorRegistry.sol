@@ -136,9 +136,20 @@ contract OperatorRegistry is
         emit SetPreferredWithdrawalOperator(preferredWithdrawalOperator);
     }
 
-    /// @notice Allows to pause the contract.
-    function togglePause() external override onlyRole(DEFAULT_ADMIN_ROLE) {
-        paused() ? _unpause() : _pause();
+    /**
+     * @dev Triggers stopped state.
+     * Contract must not be paused
+     */
+    function pause() external override onlyRole(MANAGER_ROLE) {
+        _pause();
+    }
+
+    /**
+     * @dev Returns to normal state.
+     * Contract must be paused
+     */
+    function unpause() external override onlyRole(DEFAULT_ADMIN_ROLE) {
+        _unpause();
     }
 
     /// -------------------------------Getters-----------------------------------
