@@ -1,8 +1,8 @@
-import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
-import { expect, use } from "chai";
-import { BigNumber, BigNumberish } from "ethers";
+import { SignerWithAddress } from "@nomicfoundation/hardhat-ethers/signers";
+import { expect } from "chai";
 import { ethers, upgrades } from "hardhat";
-import { BnbX, TokenHubMock, StakeManager, IBnbX } from "../typechain";
+import { BigNumber, BigNumberish } from "ethers";
+import { BnbX, TokenHubMock, StakeManager } from "../../typechain-types";
 
 describe("Stake Manager Contract", () => {
   let deployer: SignerWithAddress;

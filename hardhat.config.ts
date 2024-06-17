@@ -10,6 +10,7 @@ import {
 
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-foundry";
+import "@openzeppelin/hardhat-upgrades";
 
 task("deployBnbXProxy", "Deploy BnbX Proxy only")
   .addPositionalParam("admin")
