@@ -5,6 +5,7 @@ import { HardhatUserConfig, task } from "hardhat/config";
 import { deployDirect, deployProxy, upgradeProxy } from "./scripts/tasks";
 
 import "@nomicfoundation/hardhat-toolbox";
+import "@nomicfoundation/hardhat-foundry";
 
 task("deployBnbXProxy", "Deploy BnbX Proxy only")
   .addPositionalParam("admin")
@@ -88,6 +89,12 @@ const config: HardhatUserConfig = {
           optimizer: {
             enabled: true,
             runs: 200,
+          },
+          evmVersion: "cancun",
+          outputSelection: {
+            "*": {
+              "*": ["storageLayout"],
+            },
           },
         },
       },
