@@ -1,6 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity ^0.8.25;
 
+struct UnbondRequest {
+    uint256 shares;
+    uint256 bnbAmount;
+    uint256 unlockTime;
+}
+
 interface IStakeCredit {
     /**
      * @param delegator the address of the delegator
@@ -21,4 +27,14 @@ interface IStakeCredit {
     function getSharesByPooledBNB(
         uint256 bnbAmount
     ) external view returns (uint256);
+
+    /**
+     * @return the total length of delegator's pending unbond queue.
+     */
+    function pendingUnbondRequest(address delegator) external view returns (uint256);
+
+    /**
+     * @return the unbond request at _index.
+     */
+    function unbondRequest(address delegator, uint256 _index) external view returns (UnbondRequest memory);
 }
