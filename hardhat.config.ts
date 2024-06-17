@@ -2,7 +2,11 @@ import "dotenv/config";
 
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { HardhatUserConfig, task } from "hardhat/config";
-import { deployDirect, deployProxy, upgradeProxy } from "./scripts/tasks";
+import {
+  deployDirect,
+  deployProxy,
+  upgradeProxy,
+} from "./scripts/hardhat-scripts/tasks";
 
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-foundry";
