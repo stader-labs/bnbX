@@ -25,42 +25,24 @@ contract KOLReferral is Initializable, ERC2771Recipient {
         _disableInitializers();
     }
 
-    function initialize(address admin_, address trustedForwarder_)
-        external
-        initializer
-    {
+    function initialize(address admin_, address trustedForwarder_) external initializer {
         require(admin_ != address(0), "zero address");
         require(trustedForwarder_ != address(0), "zero address");
         admin = admin_;
         _setTrustedForwarder(trustedForwarder_);
     }
 
-    function registerKOL(address wallet, string memory referralId)
-        external
-        onlyAdmin
-    {
-        require(
-            referralIdToWallet[referralId] == address(0),
-            "ReferralId is already taken"
-        );
-        require(
-            bytes(walletToReferralId[wallet]).length == 0,
-            "ReferralId is already assigned for this wallet"
-        );
+    function registerKOL(address wallet, string memory referralId) external onlyAdmin {
+        require(referralIdToWallet[referralId] == address(0), "ReferralId is already taken");
+        require(bytes(walletToReferralId[wallet]).length == 0, "ReferralId is already assigned for this wallet");
         walletToReferralId[wallet] = referralId;
         referralIdToWallet[referralId] = wallet;
         _kols.push(wallet);
     }
 
     function storeUserInfo(string memory referralId) external {
-        require(
-            referralIdToWallet[referralId] != address(0),
-            "Invalid ReferralId"
-        );
-        require(
-            bytes(userReferredBy[_msgSender()]).length == 0,
-            "User is already referred before"
-        );
+        require(referralIdToWallet[referralId] != address(0), "Invalid ReferralId");
+        require(bytes(userReferredBy[_msgSender()]).length == 0, "User is already referred before");
         userReferredBy[_msgSender()] = referralId;
         _users.push(_msgSender());
 
@@ -70,20 +52,12 @@ contract KOLReferral is Initializable, ERC2771Recipient {
         _kolToUsers[kolWallet].push(_msgSender());
     }
 
-    function queryUserReferrer(address user)
-        external
-        view
-        returns (address _referrer)
-    {
+    function queryUserReferrer(address user) external view returns (address _referrer) {
         string memory referralId = userReferredBy[user];
         return referralIdToWallet[referralId];
     }
 
-    function getKOLUserList(address kol)
-        external
-        view
-        returns (address[] memory)
-    {
+    function getKOLUserList(address kol) external view returns (address[] memory) {
         return _kolToUsers[kol];
     }
 
@@ -91,7 +65,10 @@ contract KOLReferral is Initializable, ERC2771Recipient {
         return _kols;
     }
 
-    function getUsers(uint256 startIdx, uint256 maxNumUsers)
+    function getUsers(
+        uint256 startIdx,
+        uint256 maxNumUsers
+    )
         external
         view
         returns (uint256 numUsers, address[] memory userList)
@@ -103,11 +80,7 @@ contract KOLReferral is Initializable, ERC2771Recipient {
         }
 
         userList = new address[](maxNumUsers);
-        for (
-            numUsers = 0;
-            startIdx < _users.length && numUsers < maxNumUsers;
-            numUsers++
-        ) {
+        for (numUsers = 0; startIdx < _users.length && numUsers < maxNumUsers; numUsers++) {
             userList[numUsers] = _users[startIdx++];
         }
 

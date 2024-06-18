@@ -22,15 +22,14 @@ contract StakeManagerV2 is
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
-    IStakeHub public constant STAKE_HUB =
-        IStakeHub(0x0000000000000000000000000000000000002002);
+    IStakeHub public constant STAKE_HUB = IStakeHub(0x0000000000000000000000000000000000002002);
     IOperatorRegistry public OPERATOR_REGISTRY;
     IBnbX public BNBX;
     uint256 public lastIndex;
     uint256 public lastUnprocessedIndex;
 
     WithdrawalRequest[] private withdrawalRequests;
-     BatchWithdrawalRequest[] private batchWithdrawalRequests;
+    BatchWithdrawalRequest[] private batchWithdrawalRequests;
     mapping(address => uint256[]) private userRequests;
 
     // @custom:oz-upgrades-unsafe-allow constructor
@@ -41,10 +40,7 @@ contract StakeManagerV2 is
     /// @notice Initialize the StakeManagerV2 contract.
     /// @param _operatorRegistry Address of the operator registry contract.
     /// @param _bnbX Address of the BnbX contract.
-    function initialize(
-        address _operatorRegistry,
-        address _bnbX
-    ) external initializer {
+    function initialize(address _operatorRegistry, address _bnbX) external initializer {
         if (_operatorRegistry == address(0)) revert ZeroAddress();
         if (_bnbX == address(0)) revert ZeroAddress();
 
@@ -61,18 +57,23 @@ contract StakeManagerV2 is
     /// @notice Delegate BNB to the preferred operator.
     /// @param _referralId referral id of KOL
     /// @return The amount of BnbX minted.
-    function delegate(
-        string calldata _referralId
-    ) external payable override whenNotPaused nonReentrant returns (uint256) {
-        if (msg.value < STAKE_HUB.minDelegationBNBChange())
+    function delegate(string calldata _referralId)
+        external
+        payable
+        override
+        whenNotPaused
+        nonReentrant
+        returns (uint256)
+    {
+        if (msg.value < STAKE_HUB.minDelegationBNBChange()) {
             revert DelegationAmountTooSmall();
+        }
 
         uint256 amountToMint = convertBnbToBnbX(msg.value);
         BNBX.mint(msg.sender, amountToMint);
 
-        address preferredOperatorAddress = OPERATOR_REGISTRY
-            .preferredDepositOperator();
-        STAKE_HUB.delegate{value: msg.value}(preferredOperatorAddress, true);
+        address preferredOperatorAddress = OPERATOR_REGISTRY.preferredDepositOperator();
+        STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
 
         emit Delegated(preferredOperatorAddress, msg.value);
         emit DelegateReferral(msg.sender, msg.value, amountToMint, _referralId);
@@ -82,19 +83,11 @@ contract StakeManagerV2 is
     /// @notice Request to withdraw BnbX and get BNB back.
     /// @param _amount The amount of BnbX to withdraw.
     /// @return The index of the withdrawal request.
-    function requestWithdraw(
-        uint256 _amount
-    ) external override whenNotPaused nonReentrant returns (uint256) {
+    function requestWithdraw(uint256 _amount) external override whenNotPaused nonReentrant returns (uint256) {
         if (_amount == 0) revert ZeroAmount();
 
         withdrawalRequests.push(
-            WithdrawalRequest({
-                user: msg.sender,
-                amountInBnbX: _amount,
-                claimed: false,
-                batchId: 0,
-                processed: false
-            })
+            WithdrawalRequest({ user: msg.sender, amountInBnbX: _amount, claimed: false, batchId: 0, processed: false })
         );
 
         uint256 requestId = withdrawalRequests.length - 1;
@@ -120,46 +113,30 @@ contract StakeManagerV2 is
             // if operator is not provided, use preferred operator
             _operator = OPERATOR_REGISTRY.preferredWithdrawalOperator();
         }
-        if (!OPERATOR_REGISTRY.operatorExists(_operator))
+        if (!OPERATOR_REGISTRY.operatorExists(_operator)) {
             revert OperatorNotExisted();
+        }
 
-        address creditContract = STAKE_HUB.getValidatorCreditContract(
-            _operator
-        );
-        uint256 pooledBnb = IStakeCredit(creditContract).getPooledBNB(
-            address(this)
-        );
+        address creditContract = STAKE_HUB.getValidatorCreditContract(_operator);
+        uint256 pooledBnb = IStakeCredit(creditContract).getPooledBNB(address(this));
 
         uint256 processedCount;
         uint256 amountInBnbXToBurn;
-        for (
-            ;
-            lastIndex < withdrawalRequests.length &&
-                processedCount < _batchSize;
-            lastIndex++
-        ) {
-            if (
-                pooledBnb >=
-                convertBnbXToBnb(
-                    amountInBnbXToBurn +
-                        withdrawalRequests[lastIndex].amountInBnbX
-                )
-            ) {
-                amountInBnbXToBurn += withdrawalRequests[lastIndex]
-                    .amountInBnbX;
+        for (; lastIndex < withdrawalRequests.length && processedCount < _batchSize; lastIndex++) {
+            if (pooledBnb >= convertBnbXToBnb(amountInBnbXToBurn + withdrawalRequests[lastIndex].amountInBnbX)) {
+                amountInBnbXToBurn += withdrawalRequests[lastIndex].amountInBnbX;
                 if (!withdrawalRequests[lastIndex].processed) {
                     withdrawalRequests[lastIndex].processed = true;
-                    withdrawalRequests[lastIndex]
-                        .batchId = batchWithdrawalRequests.length;
+                    withdrawalRequests[lastIndex].batchId = batchWithdrawalRequests.length;
                     processedCount++;
                 }
-            } else break;
+            } else {
+                break;
+            }
         }
 
         if (amountInBnbXToBurn == 0) revert NoWithdrawalRequests();
-        uint256 amountToWithdrawFromOperator = convertBnbXToBnb(
-            amountInBnbXToBurn
-        );
+        uint256 amountToWithdrawFromOperator = convertBnbXToBnb(amountInBnbXToBurn);
 
         batchWithdrawalRequests.push(
             BatchWithdrawalRequest({
@@ -171,25 +148,15 @@ contract StakeManagerV2 is
             })
         );
 
-        uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(
-            amountToWithdrawFromOperator
-        );
+        uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(amountToWithdrawFromOperator);
         STAKE_HUB.undelegate(_operator, shares);
         BNBX.burn(address(this), amountInBnbXToBurn);
     }
 
     /// @notice Complete the undelegation process.
     /// @dev This function can only be called by an address with the OPERATOR_ROLE.
-    function completeUndelegation()
-        external
-        override
-        whenNotPaused
-        nonReentrant
-        onlyRole(OPERATOR_ROLE)
-    {
-        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[
-            lastUnprocessedIndex
-        ];
+    function completeUndelegation() external override whenNotPaused nonReentrant onlyRole(OPERATOR_ROLE) {
+        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[lastUnprocessedIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 
         STAKE_HUB.claim(batchRequest.operator, 1);
@@ -200,19 +167,16 @@ contract StakeManagerV2 is
     /// @notice Claim the BNB from a withdrawal request.
     /// @param _idx The index of the withdrawal request.
     /// @return The amount of BNB claimed.
-    function claimWithdrawal(
-        uint256 _idx
-    ) external override whenNotPaused nonReentrant returns (uint256) {
+    function claimWithdrawal(uint256 _idx) external override whenNotPaused nonReentrant returns (uint256) {
         if (userRequests[msg.sender].length == 0) revert NoWithdrawalRequests();
         if (_idx >= userRequests[msg.sender].length) revert InvalidIndex();
 
         WithdrawalRequest storage request = withdrawalRequests[userRequests[msg.sender][_idx]];
 
-        uint256 amountInBnb = (batchWithdrawalRequests[request.batchId].amountInBnb *
-            request.amountInBnbX) /
-            batchWithdrawalRequests[request.batchId].amountInBnbX;
+        uint256 amountInBnb = (batchWithdrawalRequests[request.batchId].amountInBnb * request.amountInBnbX)
+            / batchWithdrawalRequests[request.batchId].amountInBnbX;
 
-        (bool success, ) = payable(msg.sender).call{value: amountInBnb}("");
+        (bool success,) = payable(msg.sender).call{ value: amountInBnb }("");
         if (!success) revert TransferFailed();
 
         request.claimed = true;
@@ -229,20 +193,26 @@ contract StakeManagerV2 is
         address _fromOperator,
         address _toOperator,
         uint256 _amount
-    ) external override nonReentrant onlyRole(MANAGER_ROLE) {
+    )
+        external
+        override
+        nonReentrant
+        onlyRole(MANAGER_ROLE)
+    {
         if (_fromOperator == address(0)) revert ZeroAddress();
         if (_toOperator == address(0)) revert ZeroAddress();
         if (_fromOperator == _toOperator) revert InvalidIndex();
-        if (!OPERATOR_REGISTRY.operatorExists(_fromOperator))
+        if (!OPERATOR_REGISTRY.operatorExists(_fromOperator)) {
             revert OperatorNotExisted();
-        if (!OPERATOR_REGISTRY.operatorExists(_toOperator))
+        }
+        if (!OPERATOR_REGISTRY.operatorExists(_toOperator)) {
             revert OperatorNotExisted();
-        if (_amount < STAKE_HUB.minDelegationBNBChange())
+        }
+        if (_amount < STAKE_HUB.minDelegationBNBChange()) {
             revert DelegationAmountTooSmall();
+        }
 
-        uint256 shares = IStakeCredit(
-            STAKE_HUB.getValidatorCreditContract(_fromOperator)
-        ).getSharesByPooledBNB(_amount);
+        uint256 shares = IStakeCredit(STAKE_HUB.getValidatorCreditContract(_fromOperator)).getSharesByPooledBNB(_amount);
 
         STAKE_HUB.redelegate(_fromOperator, _toOperator, shares, true);
 
@@ -253,19 +223,14 @@ contract StakeManagerV2 is
     /// @dev This function is useful for boosting staking rewards and for initial
     ///      Fusion hardfork migration without affecting the token supply.
     /// @dev Can only be called by an address with the MANAGER_ROLE.
-    function delegateWithoutMinting()
-        external
-        payable
-        override
-        onlyRole(MANAGER_ROLE)
-    {
-        if (msg.value < STAKE_HUB.minDelegationBNBChange())
+    function delegateWithoutMinting() external payable override onlyRole(MANAGER_ROLE) {
+        if (msg.value < STAKE_HUB.minDelegationBNBChange()) {
             revert DelegationAmountTooSmall();
+        }
         if (BNBX.totalSupply() == 0) revert ZeroAmount();
 
-        address preferredOperatorAddress = OPERATOR_REGISTRY
-            .preferredDepositOperator();
-        STAKE_HUB.delegate{value: msg.value}(preferredOperatorAddress, true);
+        address preferredOperatorAddress = OPERATOR_REGISTRY.preferredDepositOperator();
+        STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
 
         emit Delegated(preferredOperatorAddress, msg.value);
     }
@@ -286,18 +251,14 @@ contract StakeManagerV2 is
         _unpause();
     }
 
-    function getUserRequests(
-        address _user
-    ) external view returns (uint256[] memory) {
+    function getUserRequests(address _user) external view returns (uint256[] memory) {
         return userRequests[_user];
     }
 
     /// @notice Convert BNB to BnbX.
     /// @param _amount The amount of BNB to convert.
     /// @return The amount of BnbX equivalent.
-    function convertBnbToBnbX(
-        uint256 _amount
-    ) public view override returns (uint256) {
+    function convertBnbToBnbX(uint256 _amount) public view override returns (uint256) {
         uint256 totalShares = BNBX.totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
@@ -310,9 +271,7 @@ contract StakeManagerV2 is
     /// @notice Convert BnbX to BNB.
     /// @param _amountInBnbX The amount of BnbX to convert.
     /// @return The amount of BNB equivalent.
-    function convertBnbXToBnb(
-        uint256 _amountInBnbX
-    ) public view override returns (uint256) {
+    function convertBnbXToBnb(uint256 _amountInBnbX) public view override returns (uint256) {
         uint256 totalShares = BNBX.totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
@@ -327,13 +286,9 @@ contract StakeManagerV2 is
         uint256 totalStake;
         uint256 operatorsLength = OPERATOR_REGISTRY.getOperatorsLength();
         for (uint256 i; i < operatorsLength; ++i) {
-            address creditContract = STAKE_HUB.getValidatorCreditContract(
-                OPERATOR_REGISTRY.getOperatorAt(i)
-            );
+            address creditContract = STAKE_HUB.getValidatorCreditContract(OPERATOR_REGISTRY.getOperatorAt(i));
 
-            totalStake += IStakeCredit(creditContract).getPooledBNB(
-                address(this)
-            );
+            totalStake += IStakeCredit(creditContract).getPooledBNB(address(this));
         }
         return totalStake;
     }
@@ -342,10 +297,7 @@ contract StakeManagerV2 is
     /// @param operator The address of the operator.
     /// @param operatorsLength The total number of operators.
     /// @return The index of the operator.
-    function findOperatorIndex(
-        address operator,
-        uint256 operatorsLength
-    ) internal view returns (uint256) {
+    function findOperatorIndex(address operator, uint256 operatorsLength) internal view returns (uint256) {
         for (uint256 i = 0; i < operatorsLength; ++i) {
             if (operator == OPERATOR_REGISTRY.getOperatorAt(i)) {
                 return i;

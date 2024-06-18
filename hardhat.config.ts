@@ -1,24 +1,16 @@
+import "dotenv/config";
+
 import { HardhatRuntimeEnvironment } from "hardhat/types";
 import { HardhatUserConfig, task } from "hardhat/config";
-import { deployDirect, deployProxy, upgradeProxy } from "./scripts/tasks";
-
-import "@nomiclabs/hardhat-etherscan";
-import "@nomiclabs/hardhat-waffle";
-import "@typechain/hardhat";
-import "@openzeppelin/hardhat-upgrades";
-import "@openzeppelin/hardhat-defender";
-import "hardhat-gas-reporter";
-import "solidity-coverage";
-import "hardhat-forta";
-import "@nomiclabs/hardhat-solhint";
-
 import {
-  DEPLOYER_PRIVATE_KEY,
-  ETHERSCAN_API_KEY,
-  SMART_CHAIN_RPC,
-  CHAIN_ID,
-  GAS_PRICE,
-} from "./environment";
+  deployDirect,
+  deployProxy,
+  upgradeProxy,
+} from "./script/hardhat-scripts/tasks";
+
+import "@nomicfoundation/hardhat-toolbox";
+import "@nomicfoundation/hardhat-foundry";
+import "@openzeppelin/hardhat-upgrades";
 
 task("deployBnbXProxy", "Deploy BnbX Proxy only")
   .addPositionalParam("admin")
@@ -94,7 +86,6 @@ task("upgradeReferralContract", "Upgrade KOL Referral Contract")
   });
 
 const config: HardhatUserConfig = {
-  defaultNetwork: "hardhat",
   solidity: {
     compilers: [
       {
@@ -104,28 +95,31 @@ const config: HardhatUserConfig = {
             enabled: true,
             runs: 200,
           },
+          evmVersion: "cancun",
+          outputSelection: {
+            "*": {
+              "*": ["storageLayout"],
+            },
+          },
         },
       },
     ],
   },
+  defaultNetwork: "hardhat",
   networks: {
     mainnet: {
-      url: SMART_CHAIN_RPC,
-      chainId: Number(CHAIN_ID),
-      accounts: [DEPLOYER_PRIVATE_KEY],
+      url: `${process.env.BSC_MAINNET_RPC_URL}`,
+      chainId: 56,
+      accounts: [process.env.DEV_PRIVATE_KEY ?? ""],
     },
     testnet: {
-      url: SMART_CHAIN_RPC,
-      chainId: Number(CHAIN_ID),
-      accounts: [DEPLOYER_PRIVATE_KEY],
+      url: `${process.env.BSC_TESTNET_RPC_URL}`,
+      chainId: 97,
+      accounts: [process.env.DEV_PRIVATE_KEY ?? ""],
     },
   },
-  gasReporter: {
-    currency: "USD",
-    gasPrice: Number(GAS_PRICE),
-  },
   etherscan: {
-    apiKey: ETHERSCAN_API_KEY,
+    apiKey: process.env.BSC_SCAN_API_KEY,
   },
 };
 

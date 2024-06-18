@@ -13,5 +13,8 @@ interface ITokenHub {
         address recipient,
         uint256 amount,
         uint64 expireTime
-    ) external payable returns (bool);
+    )
+        external
+        payable
+        returns (bool);
 }

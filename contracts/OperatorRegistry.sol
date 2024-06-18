@@ -23,8 +23,7 @@ contract OperatorRegistry is
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
-    IStakeHub public constant STAKE_HUB =
-        IStakeHub(0x0000000000000000000000000000000000002002);
+    IStakeHub public constant STAKE_HUB = IStakeHub(0x0000000000000000000000000000000000002002);
     address public override preferredDepositOperator;
     address public override preferredWithdrawalOperator;
 
@@ -47,9 +46,7 @@ contract OperatorRegistry is
     /// @notice Allows an operator that was already staked on the BNB stake manager
     /// to join the BNBX protocol.
     /// @param _operator Address of the operator.
-    function addOperator(
-        address _operator
-    )
+    function addOperator(address _operator)
         external
         override
         whenNotPaused
@@ -59,9 +56,7 @@ contract OperatorRegistry is
     {
         if (_operator == address(0)) revert ZeroAddress();
 
-        (uint256 createdTime, bool jailed, ) = STAKE_HUB.getValidatorBasicInfo(
-            _operator
-        );
+        (uint256 createdTime, bool jailed,) = STAKE_HUB.getValidatorBasicInfo(_operator);
         if (createdTime == 0) revert OperatorNotExisted();
         if (jailed) revert OperatorJailed();
 
@@ -72,9 +67,7 @@ contract OperatorRegistry is
 
     /// @notice Allows to remove an operator from the registry.
     /// @param _operator Address of the operator.
-    function removeOperator(
-        address _operator
-    )
+    function removeOperator(address _operator)
         external
         override
         whenNotPaused
@@ -83,15 +76,16 @@ contract OperatorRegistry is
         onlyRole(MANAGER_ROLE)
     {
         if (_operator == address(0)) revert ZeroAddress();
-        if (preferredDepositOperator == _operator)
+        if (preferredDepositOperator == _operator) {
             revert OperatorIsPreferredDeposit();
-        if (preferredWithdrawalOperator == _operator)
+        }
+        if (preferredWithdrawalOperator == _operator) {
             revert OperatorIsPreferredWithdrawal();
+        }
 
-        if (
-            IStakeCredit(STAKE_HUB.getValidatorCreditContract(_operator))
-                .getPooledBNB(address(this)) != 0
-        ) revert DelegationExists();
+        if (IStakeCredit(STAKE_HUB.getValidatorCreditContract(_operator)).getPooledBNB(address(this)) != 0) {
+            revert DelegationExists();
+        }
 
         operatorSet.remove(_operator);
 
@@ -100,9 +94,7 @@ contract OperatorRegistry is
 
     /// @notice Allows to set the preferred operator for deposits.
     /// @param _operator Address of the operator.
-    function setPreferredDepositOperator(
-        address _operator
-    )
+    function setPreferredDepositOperator(address _operator)
         external
         override
         whenNotPaused
@@ -119,9 +111,7 @@ contract OperatorRegistry is
 
     /// @notice Allows to set the preferred operator for withdrawals.
     /// @param _operator Address of the operator.
-    function setPreferredWithdrawalOperator(
-        address _operator
-    )
+    function setPreferredWithdrawalOperator(address _operator)
         external
         override
         whenNotPaused
@@ -157,9 +147,7 @@ contract OperatorRegistry is
     /// @notice Get operator address by its index.
     /// @param _index Operator index.
     /// @return _operator The operator address.
-    function getOperatorAt(
-        uint256 _index
-    ) external view override returns (address) {
+    function getOperatorAt(uint256 _index) external view override returns (address) {
         return operatorSet.at(_index);
     }
 
@@ -172,9 +160,7 @@ contract OperatorRegistry is
     /// @notice Check if an operator exists in the registry.
     /// @param _operator Address of the operator.
     /// @return True if the operator exists, false otherwise.
-    function operatorExists(
-        address _operator
-    ) external view override returns (bool) {
+    function operatorExists(address _operator) external view override returns (bool) {
         return operatorSet.contains(_operator);
     }
 

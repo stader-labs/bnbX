@@ -1,8 +1,14 @@
+# directories
+cache
+cache_forge
+out
 node_modules
+.env
 coverage
 coverage.json
 typechain
-dist
+typechain-types
+tmp
 
 #Hardhat files
 cache
@@ -13,6 +19,9 @@ artifacts
 .env.test
 
 .openzeppelin
+
+# foundry files
+broadcast
 
 # MacOS
 .DS_Store
