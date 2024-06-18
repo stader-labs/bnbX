@@ -12,9 +12,7 @@ interface IStakeCredit {
      * @param delegator the address of the delegator
      * @return shares the amount of shares minted
      */
-    function delegate(
-        address delegator
-    ) external payable returns (uint256 shares);
+    function delegate(address delegator) external payable returns (uint256 shares);
 
     /**
      * @return the total amount of BNB staked and reward of the delegator.
@@ -24,9 +22,7 @@ interface IStakeCredit {
     /**
      * @return the amount of shares that corresponds to `_bnbAmount` protocol-controlled BNB.
      */
-    function getSharesByPooledBNB(
-        uint256 bnbAmount
-    ) external view returns (uint256);
+    function getSharesByPooledBNB(uint256 bnbAmount) external view returns (uint256);
 
     /**
      * @return the total length of delegator's pending unbond queue.

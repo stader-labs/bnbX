@@ -6,7 +6,7 @@ import {
   deployDirect,
   deployProxy,
   upgradeProxy,
-} from "./scripts/hardhat-scripts/tasks";
+} from "./script/hardhat-scripts/tasks";
 
 import "@nomicfoundation/hardhat-toolbox";
 import "@nomicfoundation/hardhat-foundry";
