@@ -5,16 +5,16 @@ export async function deployDirect(
   contractName: string,
   ...args: any
 ) {
-  const Contract = await hre.ethers.getContractFactory(contractName);
+  const contractFactory = await hre.ethers.getContractFactory(contractName);
 
   console.log(`Deploying ${contractName}: ${args}, ${args.length}`);
-  const contract = args.length
-    ? await Contract.deploy(...args)
-    : await Contract.deploy();
+  let contract = args.length
+    ? await contractFactory.deploy(...args)
+    : await contractFactory.deploy();
 
-  await contract.deployed();
+  contract = await contract.waitForDeployment();
 
-  console.log(`${contractName} deployed to:`, contract.address);
+  console.log(`${contractName} deployed to:`, await contract.getAddress());
 }
 
 export async function deployProxy(
@@ -22,19 +22,24 @@ export async function deployProxy(
   contractName: string,
   ...args: any
 ) {
-  const Contract = await hre.ethers.getContractFactory(contractName);
+  const contractFactory = await hre.ethers.getContractFactory(contractName);
 
   console.log(`Deploying proxy ${contractName}: ${args}, ${args.length}`);
-  const contract = args.length
-    ? await hre.upgrades.deployProxy(Contract, args)
-    : await hre.upgrades.deployProxy(Contract);
+  let contract = args.length
+    ? await hre.upgrades.deployProxy(contractFactory, args)
+    : await hre.upgrades.deployProxy(contractFactory);
 
-  await contract.deployed();
+  contract = await contract.waitForDeployment();
 
   const contractImplAddress =
-    await hre.upgrades.erc1967.getImplementationAddress(contract.address);
+    await hre.upgrades.erc1967.getImplementationAddress(
+      await contract.getAddress()
+    );
 
-  console.log(`Proxy ${contractName} deployed to:`, contract.address);
+  console.log(
+    `Proxy ${contractName} deployed to:`,
+    await contract.getAddress()
+  );
   console.log(`Impl ${contractName} deployed to:`, contractImplAddress);
 }
 
@@ -43,16 +48,19 @@ export async function upgradeProxy(
   contractName: string,
   proxyAddress: string
 ) {
-  const Contract = await hre.ethers.getContractFactory(contractName);
+  const contractFactory = await hre.ethers.getContractFactory(contractName);
 
   console.log(`Upgrading ${contractName} with proxy at: ${proxyAddress}`);
 
-  const contract = await hre.upgrades.upgradeProxy(proxyAddress, Contract);
-  await contract.deployed();
+  let contract = await hre.upgrades.upgradeProxy(proxyAddress, contractFactory);
+  contract = await contract.waitForDeployment();
 
   const contractImplAddress =
     await hre.upgrades.erc1967.getImplementationAddress(proxyAddress);
 
-  console.log(`Proxy ${contractName} deployed to:`, contract.address);
+  console.log(
+    `Proxy ${contractName} deployed to:`,
+    await contract.getAddress()
+  );
   console.log(`Impl ${contractName} deployed to:`, contractImplAddress);
 }
