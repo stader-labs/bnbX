@@ -19,14 +19,19 @@ contract StakeManagerV2 is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable
 {
+    bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
     IStakeHub public constant STAKE_HUB =
         IStakeHub(0x0000000000000000000000000000000000002002);
     IOperatorRegistry public OPERATOR_REGISTRY;
     IBnbX public BNBX;
+    uint256 public lastIndex;
+    uint256 public lastUnprocessedIndex;
 
-    mapping(address => WithdrawalRequest[]) private userWithdrawalRequests;
+    WithdrawalRequest[] private withdrawalRequests;
+     BatchWithdrawalRequest[] private batchWithdrawalRequests;
+    mapping(address => uint256[]) private userRequests;
 
     // @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -76,70 +81,144 @@ contract StakeManagerV2 is
 
     /// @notice Request to withdraw BnbX and get BNB back.
     /// @param _amount The amount of BnbX to withdraw.
-    /// @return The amount of BNB to be received.
+    /// @return The index of the withdrawal request.
     function requestWithdraw(
         uint256 _amount
     ) external override whenNotPaused nonReentrant returns (uint256) {
         if (_amount == 0) revert ZeroAmount();
 
-        uint256 totalAmount2WithdrawInBnb = convertBnbXToBnb(_amount);
-        uint256 leftAmount2WithdrawInBnb = totalAmount2WithdrawInBnb;
-        BNBX.burn(msg.sender, _amount);
-
-        address preferredOperator = OPERATOR_REGISTRY
-            .preferredWithdrawalOperator();
-        uint256 operatorsLength = OPERATOR_REGISTRY.getOperatorsLength();
-        if (operatorsLength == 0) revert NoOperatorsAvailable();
-
-        uint256 currentIdx = findOperatorIndex(
-            preferredOperator,
-            operatorsLength
+        withdrawalRequests.push(
+            WithdrawalRequest({
+                user: msg.sender,
+                amountInBnbX: _amount,
+                claimed: false,
+                batchId: 0,
+                processed: false
+            })
         );
 
-        while (leftAmount2WithdrawInBnb > 0) {
-            leftAmount2WithdrawInBnb -= _undelegate(
-                OPERATOR_REGISTRY.getOperatorAt(currentIdx),
-                leftAmount2WithdrawInBnb
-            );
+        uint256 requestId = withdrawalRequests.length - 1;
+        userRequests[msg.sender].push(requestId);
 
-            currentIdx = currentIdx + 1 < operatorsLength ? currentIdx + 1 : 0;
-        }
+        BNBX.transferFrom(msg.sender, address(this), _amount);
+        emit RequestedWithdrawal(msg.sender, _amount);
 
-        emit RequestedWithdrawal(
-            msg.sender,
-            _amount,
-            totalAmount2WithdrawInBnb
-        );
-        return totalAmount2WithdrawInBnb;
+        return requestId;
     }
 
-    /// @notice Claims the withdrawn BNB after the unbonding period.
+    function startUndelegation(
+        uint256 _batchSize,
+        address _operator
+    )
+        external
+        override
+        whenNotPaused
+        nonReentrant
+        onlyRole(OPERATOR_ROLE)
+    {
+        if (_operator == address(0)) {
+            // if operator is not provided, use preferred operator
+            _operator = OPERATOR_REGISTRY.preferredWithdrawalOperator();
+        }
+        if (!OPERATOR_REGISTRY.operatorExists(_operator))
+            revert OperatorNotExisted();
+
+        address creditContract = STAKE_HUB.getValidatorCreditContract(
+            _operator
+        );
+        uint256 pooledBnb = IStakeCredit(creditContract).getPooledBNB(
+            address(this)
+        );
+
+        uint256 processedCount;
+        uint256 amountInBnbXToBurn;
+        for (
+            ;
+            lastIndex < withdrawalRequests.length &&
+                processedCount < _batchSize;
+            lastIndex++
+        ) {
+            if (
+                pooledBnb >=
+                convertBnbXToBnb(
+                    amountInBnbXToBurn +
+                        withdrawalRequests[lastIndex].amountInBnbX
+                )
+            ) {
+                amountInBnbXToBurn += withdrawalRequests[lastIndex]
+                    .amountInBnbX;
+                if (!withdrawalRequests[lastIndex].processed) {
+                    withdrawalRequests[lastIndex].processed = true;
+                    withdrawalRequests[lastIndex]
+                        .batchId = batchWithdrawalRequests.length;
+                    processedCount++;
+                }
+            } else break;
+        }
+
+        if (amountInBnbXToBurn == 0) revert NoWithdrawalRequests();
+        uint256 amountToWithdrawFromOperator = convertBnbXToBnb(
+            amountInBnbXToBurn
+        );
+
+        batchWithdrawalRequests.push(
+            BatchWithdrawalRequest({
+                amountInBnb: amountToWithdrawFromOperator,
+                amountInBnbX: amountInBnbXToBurn,
+                unlockTime: block.timestamp + STAKE_HUB.unbondPeriod(),
+                operator: _operator,
+                isClaimable: false
+            })
+        );
+
+        uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(
+            amountToWithdrawFromOperator
+        );
+        STAKE_HUB.undelegate(_operator, shares);
+        BNBX.burn(address(this), amountInBnbXToBurn);
+    }
+
+    /// @notice Complete the undelegation process.
+    /// @dev This function can only be called by an address with the OPERATOR_ROLE.
+    function completeUndelegation()
+        external
+        override
+        whenNotPaused
+        nonReentrant
+        onlyRole(OPERATOR_ROLE)
+    {
+        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[
+            lastUnprocessedIndex
+        ];
+        if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
+
+        STAKE_HUB.claim(batchRequest.operator, 1);
+        batchRequest.isClaimable = true;
+        lastUnprocessedIndex++;
+    }
+
+    /// @notice Claim the BNB from a withdrawal request.
     /// @param _idx The index of the withdrawal request.
     /// @return The amount of BNB claimed.
     function claimWithdrawal(
         uint256 _idx
     ) external override whenNotPaused nonReentrant returns (uint256) {
-        WithdrawalRequest[] storage userRequests = userWithdrawalRequests[
-            msg.sender
-        ];
-        if (userRequests.length == 0) revert NoWithdrawalRequests();
-        if (_idx >= userRequests.length) revert InvalidIndex();
+        if (userRequests[msg.sender].length == 0) revert NoWithdrawalRequests();
+        if (_idx >= userRequests[msg.sender].length) revert InvalidIndex();
 
-        WithdrawalRequest memory userRequest = userRequests[_idx];
-        uint256 amountToClaim = userRequest.bnbAmount;
-        if (block.timestamp < userRequest.unlockTime) revert Unbonding();
+        WithdrawalRequest storage request = withdrawalRequests[userRequests[msg.sender][_idx]];
 
-        STAKE_HUB.claim(userRequest.operator, 0);
+        uint256 amountInBnb = (batchWithdrawalRequests[request.batchId].amountInBnb *
+            request.amountInBnbX) /
+            batchWithdrawalRequests[request.batchId].amountInBnbX;
 
-        // Swap with the last item and pop it.
-        userRequests[_idx] = userRequests[userRequests.length - 1];
-        userRequests.pop();
-
-        (bool success, ) = payable(msg.sender).call{value: amountToClaim}("");
+        (bool success, ) = payable(msg.sender).call{value: amountInBnb}("");
         if (!success) revert TransferFailed();
 
-        emit ClaimedWithdrawal(msg.sender, _idx, amountToClaim);
-        return amountToClaim;
+        request.claimed = true;
+
+        emit ClaimedWithdrawal(msg.sender, _idx, amountInBnb);
+        return amountInBnb;
     }
 
     /// @notice Redelegate staked BNB from one operator to another.
@@ -207,50 +286,10 @@ contract StakeManagerV2 is
         _unpause();
     }
 
-    /// @notice Internal function to undelegate BNB from an operator.
-    /// @param _operator The address of the operator.
-    /// @param _amount The amount of BNB to undelegate.
-    /// @return The amount of BNB actually undelegated.
-    function _undelegate(
-        address _operator,
-        uint256 _amount
-    ) internal returns (uint256) {
-        address creditContract = STAKE_HUB.getValidatorCreditContract(
-            _operator
-        );
-        uint256 pooledBnb = IStakeCredit(creditContract).getPooledBNB(
-            address(this)
-        );
-
-        if (pooledBnb == 0) {
-            return _amount;
-        }
-
-        uint256 amountToWithdrawFromOperator = (pooledBnb <= _amount)
-            ? pooledBnb
-            : _amount;
-
-        uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(
-            amountToWithdrawFromOperator
-        );
-        STAKE_HUB.undelegate(_operator, shares);
-
-        userWithdrawalRequests[msg.sender].push(
-            WithdrawalRequest({
-                shares: shares,
-                bnbAmount: amountToWithdrawFromOperator,
-                unlockTime: block.timestamp + STAKE_HUB.unbondPeriod(),
-                operator: _operator
-            })
-        );
-
-        return amountToWithdrawFromOperator;
-    }
-
-    function getUserWithdrawalRequests(
+    function getUserRequests(
         address _user
-    ) external view returns (WithdrawalRequest[] memory) {
-        return userWithdrawalRequests[_user];
+    ) external view returns (uint256[] memory) {
+        return userRequests[_user];
     }
 
     /// @notice Convert BNB to BnbX.

@@ -2,10 +2,19 @@
 pragma solidity ^0.8.25;
 
 struct WithdrawalRequest {
-    uint256 shares;
-    uint256 bnbAmount;
+    address user;
+    bool processed;
+    bool claimed;
+    uint256 amountInBnbX;
+    uint256 batchId;
+}
+
+struct BatchWithdrawalRequest {
+    uint256 amountInBnb;
+    uint256 amountInBnbX;
     uint256 unlockTime;
     address operator;
+    bool isClaimable;
 }
 
 interface IStakeManagerV2 {
@@ -30,21 +39,20 @@ interface IStakeManagerV2 {
         uint256 _amount
     ) external;
     function delegateWithoutMinting() external payable;
+    function completeUndelegation() external;
+    function startUndelegation(uint256 _batchSize, address _operator) external;
     function pause() external;
     function unpause() external;
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
     function convertBnbXToBnb(
         uint256 _amountInBnbX
     ) external view returns (uint256);
-    function getUserWithdrawalRequests(
-        address _user
-    ) external returns (WithdrawalRequest[] memory);
+    function getUserRequests(address _user) external returns (uint256[] memory);
 
     event Delegated(address indexed _account, uint256 _amount);
     event RequestedWithdrawal(
         address indexed _account,
-        uint256 _amountInBnbX,
-        uint256 _amountInBnb
+        uint256 _amountInBnbX
     );
     event ClaimedWithdrawal(
         address indexed _account,
