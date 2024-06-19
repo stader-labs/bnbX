@@ -44,6 +44,7 @@ contract StakeManagerV2 is
     /// @param _operatorRegistry Address of the operator registry contract.
     /// @param _bnbX Address of the BnbX contract.
     function initialize(
+        address _admin,
         address _operatorRegistry,
         address _bnbX,
         address _staderTreasury,
@@ -52,6 +53,7 @@ contract StakeManagerV2 is
         external
         initializer
     {
+        if (_admin == address(0)) revert ZeroAddress();
         if (_operatorRegistry == address(0)) revert ZeroAddress();
         if (_bnbX == address(0)) revert ZeroAddress();
 
@@ -59,7 +61,7 @@ contract StakeManagerV2 is
         __Pausable_init();
         __ReentrancyGuard_init();
 
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(DEFAULT_ADMIN_ROLE, _admin);
 
         OPERATOR_REGISTRY = IOperatorRegistry(_operatorRegistry);
         BNBX = IBnbX(_bnbX);
