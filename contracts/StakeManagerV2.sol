@@ -26,8 +26,8 @@ contract StakeManagerV2 is
     IOperatorRegistry public OPERATOR_REGISTRY;
     IBnbX public BNBX;
     address public staderTreasury;
-    uint256 public lastIndex;
-    uint256 public lastUnprocessedIndex;
+    uint256 public firstUnprocessedUserIndex;
+    uint256 public firstUnprocessedBatchIndex;
     uint256 public totalDelegated;
     uint256 public feeBps;
 
@@ -145,12 +145,19 @@ contract StakeManagerV2 is
 
         uint256 processedCount;
         uint256 amountInBnbXToBurn;
-        for (; lastIndex < withdrawalRequests.length && processedCount < _batchSize; lastIndex++) {
-            if (pooledBnb >= convertBnbXToBnb(amountInBnbXToBurn + withdrawalRequests[lastIndex].amountInBnbX)) {
-                amountInBnbXToBurn += withdrawalRequests[lastIndex].amountInBnbX;
-                if (!withdrawalRequests[lastIndex].processed) {
-                    withdrawalRequests[lastIndex].processed = true;
-                    withdrawalRequests[lastIndex].batchId = batchWithdrawalRequests.length;
+        for (
+            ;
+            firstUnprocessedUserIndex < withdrawalRequests.length && processedCount < _batchSize;
+            firstUnprocessedUserIndex++
+        ) {
+            if (
+                pooledBnb
+                    >= convertBnbXToBnb(amountInBnbXToBurn + withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX)
+            ) {
+                amountInBnbXToBurn += withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
+                if (!withdrawalRequests[firstUnprocessedUserIndex].processed) {
+                    withdrawalRequests[firstUnprocessedUserIndex].processed = true;
+                    withdrawalRequests[firstUnprocessedUserIndex].batchId = batchWithdrawalRequests.length;
                     processedCount++;
                 }
             } else {
@@ -180,12 +187,12 @@ contract StakeManagerV2 is
     /// @notice Complete the undelegation process.
     /// @dev This function can only be called by an address with the OPERATOR_ROLE.
     function completeUndelegation() external override whenNotPaused nonReentrant onlyRole(OPERATOR_ROLE) {
-        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[lastUnprocessedIndex];
+        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnprocessedBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 
         STAKE_HUB.claim(batchRequest.operator, 1);
         batchRequest.isClaimable = true;
-        lastUnprocessedIndex++;
+        firstUnprocessedBatchIndex++;
     }
 
     /// @notice Claim the BNB from a withdrawal request.
