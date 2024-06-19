@@ -141,23 +141,17 @@ contract StakeManagerV2 is
         address creditContract = STAKE_HUB.getValidatorCreditContract(_operator);
         uint256 pooledBnb = IStakeCredit(creditContract).getPooledBNB(address(this));
 
+        uint256 cummulativeBnbXToBurn;
         uint256 processedCount;
         uint256 amountInBnbXToBurn;
-        for (
-            ;
-            firstUnprocessedUserIndex < withdrawalRequests.length && processedCount < _batchSize;
-            firstUnprocessedUserIndex++
-        ) {
-            if (
-                pooledBnb
-                    >= convertBnbXToBnb(amountInBnbXToBurn + withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX)
-            ) {
-                amountInBnbXToBurn += withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
-                if (!withdrawalRequests[firstUnprocessedUserIndex].processed) {
-                    withdrawalRequests[firstUnprocessedUserIndex].processed = true;
-                    withdrawalRequests[firstUnprocessedUserIndex].batchId = batchWithdrawalRequests.length;
-                    processedCount++;
-                }
+        while (firstUnprocessedUserIndex < withdrawalRequests.length && processedCount < _batchSize) {
+            cummulativeBnbXToBurn = amountInBnbXToBurn + withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
+            if (pooledBnb >= convertBnbXToBnb(cummulativeBnbXToBurn)) {
+                amountInBnbXToBurn = cummulativeBnbXToBurn;
+                withdrawalRequests[firstUnprocessedUserIndex].processed = true;
+                withdrawalRequests[firstUnprocessedUserIndex].batchId = batchWithdrawalRequests.length;
+                processedCount++;
+                firstUnprocessedUserIndex++;
             } else {
                 break;
             }
