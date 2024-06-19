@@ -27,7 +27,7 @@ contract StakeManagerV2 is
     IBnbX public BNBX;
     address public staderTreasury;
     uint256 public firstUnprocessedUserIndex;
-    uint256 public firstUnprocessedBatchIndex;
+    uint256 public firstUnbondingBatchIndex;
     uint256 public totalDelegated;
     uint256 public feeBps;
 
@@ -185,12 +185,12 @@ contract StakeManagerV2 is
     /// @notice Complete the undelegation process.
     /// @dev This function can only be called by an address with the OPERATOR_ROLE.
     function completeUndelegation() external override whenNotPaused nonReentrant onlyRole(OPERATOR_ROLE) {
-        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnprocessedBatchIndex];
+        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnbondingBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 
         STAKE_HUB.claim(batchRequest.operator, 1);
         batchRequest.isClaimable = true;
-        firstUnprocessedBatchIndex++;
+        firstUnbondingBatchIndex++;
     }
 
     /// @notice Claim the BNB from a withdrawal request.
