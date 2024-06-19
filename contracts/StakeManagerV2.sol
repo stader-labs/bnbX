@@ -203,10 +203,11 @@ contract StakeManagerV2 is
         if (_idx >= userRequests[msg.sender].length) revert InvalidIndex();
 
         WithdrawalRequest storage request = withdrawalRequests[userRequests[msg.sender][_idx]];
-        request.claimed = true;
+        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[request.batchId];
+        if (batchRequest.isClaimable == false) revert Unbonding();
 
-        uint256 amountInBnb = (batchWithdrawalRequests[request.batchId].amountInBnb * request.amountInBnbX)
-            / batchWithdrawalRequests[request.batchId].amountInBnbX;
+        request.claimed = true;
+        uint256 amountInBnb = (batchRequest.amountInBnb * request.amountInBnbX) / batchRequest.amountInBnbX;
 
         (bool success,) = payable(msg.sender).call{ value: amountInBnb }("");
         if (!success) revert TransferFailed();
