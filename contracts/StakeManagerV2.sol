@@ -191,8 +191,8 @@ contract StakeManagerV2 is
 
         batchRequest.isClaimable = true;
         firstUnbondingBatchIndex++;
-        STAKE_HUB.claim(batchRequest.operator, 1);
-        // TODO: throw event and rename fn
+        STAKE_HUB.claim(batchRequest.operator, 1); // claims 1 request
+            // TODO: throw event and rename fn
     }
 
     /// @notice Claim the BNB from a withdrawal request.
@@ -219,6 +219,8 @@ contract StakeManagerV2 is
     /// @param _fromOperator The address of the operator to redelegate from.
     /// @param _toOperator The address of the operator to redelegate to.
     /// @param _amount The amount of BNB to redelegate.
+    /// @dev redelegate has a fee associated with it. This fee will be consumed from TVL. See fn:getRedelegationFee()
+    /// @dev redelegate doesn't have a waiting period
     function redelegate(
         address _fromOperator,
         address _toOperator,
@@ -291,6 +293,13 @@ contract StakeManagerV2 is
 
     function getUserRequests(address _user) external view returns (uint256[] memory) {
         return userRequests[_user];
+    }
+
+    /// @notice Get the fee associated with a redelegation.
+    /// @param _amount The amount of BNB to redelegate.
+    /// @return The fee associated with the redelegation.
+    function getRedelegationFee(uint256 _amount) external view returns (uint256) {
+        return (_amount * STAKE_HUB.redelegateFeeRate()) / STAKE_HUB.REDELEGATE_FEE_RATE_BASE();
     }
 
     /// @notice Convert BNB to BnbX.
