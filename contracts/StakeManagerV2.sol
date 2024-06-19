@@ -94,8 +94,8 @@ contract StakeManagerV2 is
         returns (uint256)
     {
         uint256 amountToMint = convertBnbToBnbX(msg.value);
-        BNBX.mint(msg.sender, amountToMint);
         _delegate();
+        BNBX.mint(msg.sender, amountToMint);
 
         emit DelegateReferral(msg.sender, msg.value, amountToMint, _referralId);
         return amountToMint;
@@ -264,9 +264,9 @@ contract StakeManagerV2 is
 
     function _delegate() internal {
         address preferredOperatorAddress = OPERATOR_REGISTRY.preferredDepositOperator();
-        STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
         totalDelegated += msg.value;
 
+        STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
         emit Delegated(preferredOperatorAddress, msg.value);
     }
 
