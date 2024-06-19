@@ -25,8 +25,11 @@ contract StakeManagerV2 is
     IStakeHub public constant STAKE_HUB = IStakeHub(0x0000000000000000000000000000000000002002);
     IOperatorRegistry public OPERATOR_REGISTRY;
     IBnbX public BNBX;
+    address public staderTreasury;
     uint256 public lastIndex;
     uint256 public lastUnprocessedIndex;
+    uint256 public totalDelegated;
+    uint256 public feeBps;
 
     WithdrawalRequest[] private withdrawalRequests;
     BatchWithdrawalRequest[] private batchWithdrawalRequests;
@@ -40,7 +43,15 @@ contract StakeManagerV2 is
     /// @notice Initialize the StakeManagerV2 contract.
     /// @param _operatorRegistry Address of the operator registry contract.
     /// @param _bnbX Address of the BnbX contract.
-    function initialize(address _operatorRegistry, address _bnbX) external initializer {
+    function initialize(
+        address _operatorRegistry,
+        address _bnbX,
+        address _staderTreasury,
+        uint256 _feeBps
+    )
+        external
+        initializer
+    {
         if (_operatorRegistry == address(0)) revert ZeroAddress();
         if (_bnbX == address(0)) revert ZeroAddress();
 
@@ -52,6 +63,21 @@ contract StakeManagerV2 is
 
         OPERATOR_REGISTRY = IOperatorRegistry(_operatorRegistry);
         BNBX = IBnbX(_bnbX);
+        staderTreasury = _staderTreasury;
+        feeBps = _feeBps;
+    }
+
+    /// @notice Sets the address of the Stader Treasury.
+    /// @param _staderTreasury The new address of the Stader Treasury.
+    function setStaderTreasury(address _staderTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_staderTreasury != address(0)) revert ZeroAddress();
+        staderTreasury = _staderTreasury;
+        emit SetStaderTreasury(staderTreasury);
+    }
+
+    function setFeeBps(uint256 _feeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        feeBps = _feeBps;
+        emit SetFeeBps(feeBps);
     }
 
     /// @notice Delegate BNB to the preferred operator.
@@ -71,11 +97,8 @@ contract StakeManagerV2 is
 
         uint256 amountToMint = convertBnbToBnbX(msg.value);
         BNBX.mint(msg.sender, amountToMint);
+        _delegate();
 
-        address preferredOperatorAddress = OPERATOR_REGISTRY.preferredDepositOperator();
-        STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
-
-        emit Delegated(preferredOperatorAddress, msg.value);
         emit DelegateReferral(msg.sender, msg.value, amountToMint, _referralId);
         return amountToMint;
     }
@@ -137,6 +160,7 @@ contract StakeManagerV2 is
 
         if (amountInBnbXToBurn == 0) revert NoWithdrawalRequests();
         uint256 amountToWithdrawFromOperator = convertBnbXToBnb(amountInBnbXToBurn);
+        totalDelegated -= amountToWithdrawFromOperator;
 
         batchWithdrawalRequests.push(
             BatchWithdrawalRequest({
@@ -219,18 +243,31 @@ contract StakeManagerV2 is
         emit Redelegated(_fromOperator, _toOperator, _amount);
     }
 
+    function updateER() external override onlyRole(MANAGER_ROLE) {
+        uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
+        if (totalDelegated < totalPooledBnb) {
+            uint256 rewards = ((totalPooledBnb - totalDelegated) * feeBps) / 10_000;
+            uint256 amountToMint = convertBnbToBnbX(rewards);
+            BNBX.mint(staderTreasury, amountToMint);
+        }
+
+        totalDelegated = totalPooledBnb;
+    }
+
     /// @notice Delegate BNB to the preferred operator without minting BnbX.
     /// @dev This function is useful for boosting staking rewards and for initial
     ///      Fusion hardfork migration without affecting the token supply.
     /// @dev Can only be called by an address with the MANAGER_ROLE.
     function delegateWithoutMinting() external payable override onlyRole(MANAGER_ROLE) {
-        if (msg.value < STAKE_HUB.minDelegationBNBChange()) {
-            revert DelegationAmountTooSmall();
-        }
         if (BNBX.totalSupply() == 0) revert ZeroAmount();
 
+        _delegate();
+    }
+
+    function _delegate() internal {
         address preferredOperatorAddress = OPERATOR_REGISTRY.preferredDepositOperator();
         STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
+        totalDelegated += msg.value;
 
         emit Delegated(preferredOperatorAddress, msg.value);
     }
@@ -261,11 +298,9 @@ contract StakeManagerV2 is
     function convertBnbToBnbX(uint256 _amount) public view override returns (uint256) {
         uint256 totalShares = BNBX.totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
+        uint256 totalDelegate_ = totalDelegated == 0 ? 1 : totalDelegated;
 
-        uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
-        totalPooledBnb = totalPooledBnb == 0 ? 1 : totalPooledBnb;
-
-        return (_amount * totalShares) / totalPooledBnb;
+        return (_amount * totalShares) / totalDelegate_;
     }
 
     /// @notice Convert BnbX to BNB.
@@ -275,9 +310,7 @@ contract StakeManagerV2 is
         uint256 totalShares = BNBX.totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
 
-        uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
-
-        return (_amountInBnbX * totalPooledBnb) / totalShares;
+        return (_amountInBnbX * totalDelegated) / totalShares;
     }
 
     /// @notice Get the total stake across all operators.
@@ -291,18 +324,5 @@ contract StakeManagerV2 is
             totalStake += IStakeCredit(creditContract).getPooledBNB(address(this));
         }
         return totalStake;
-    }
-
-    /// @notice Find the index of an operator in the operator registry.
-    /// @param operator The address of the operator.
-    /// @param operatorsLength The total number of operators.
-    /// @return The index of the operator.
-    function findOperatorIndex(address operator, uint256 operatorsLength) internal view returns (uint256) {
-        for (uint256 i = 0; i < operatorsLength; ++i) {
-            if (operator == OPERATOR_REGISTRY.getOperatorAt(i)) {
-                return i;
-            }
-        }
-        return 0;
     }
 }

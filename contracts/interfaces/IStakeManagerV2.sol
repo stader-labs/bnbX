@@ -35,6 +35,7 @@ interface IStakeManagerV2 {
     function delegateWithoutMinting() external payable;
     function completeUndelegation() external;
     function startUndelegation(uint256 _batchSize, address _operator) external;
+    function updateER() external;
     function pause() external;
     function unpause() external;
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
@@ -46,4 +47,6 @@ interface IStakeManagerV2 {
     event ClaimedWithdrawal(address indexed _account, uint256 _index, uint256 _amountInBnb);
     event Redelegated(address indexed _fromOperator, address indexed _toOperator, uint256 _amountInBnb);
     event DelegateReferral(address indexed _account, uint256 _amountInBnb, uint256 _amountInBnbX, string _referralId);
+    event SetStaderTreasury(address _treasury);
+    event SetFeeBps(uint256 _feeBps);
 }
