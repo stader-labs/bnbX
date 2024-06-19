@@ -21,6 +21,7 @@ interface IOperatorRegistry {
     function preferredWithdrawalOperator() external view returns (address);
     function getOperatorAt(uint256) external view returns (address);
     function getOperatorsLength() external view returns (uint256);
+    function getOperators() external view returns (address[] memory);
     function addOperator(address _operator) external;
     function removeOperator(address _operator) external;
     function setPreferredDepositOperator(address _operator) external;

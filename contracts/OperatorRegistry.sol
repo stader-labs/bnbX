@@ -166,6 +166,11 @@ contract OperatorRegistry is
         return operatorSet.contains(_operator);
     }
 
+    /// @notice Return the entire set in an array
+    function getOperators() external view override returns (address[] memory) {
+        return operatorSet.values();
+    }
+
     /// -------------------------------Modifiers-----------------------------------
 
     /**

@@ -328,9 +328,10 @@ contract StakeManagerV2 is
     function getTotalStakeAcrossAllOperators() public view returns (uint256) {
         uint256 totalStake;
         uint256 operatorsLength = OPERATOR_REGISTRY.getOperatorsLength();
-        for (uint256 i; i < operatorsLength; ++i) {
-            address creditContract = STAKE_HUB.getValidatorCreditContract(OPERATOR_REGISTRY.getOperatorAt(i));
+        address[] memory operators = OPERATOR_REGISTRY.getOperators();
 
+        for (uint256 i; i < operatorsLength; ++i) {
+            address creditContract = STAKE_HUB.getValidatorCreditContract(operators[i]);
             totalStake += IStakeCredit(creditContract).getPooledBNB(address(this));
         }
         return totalStake;
