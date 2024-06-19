@@ -178,8 +178,9 @@ contract StakeManagerV2 is
         );
 
         uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(amountToWithdrawFromOperator);
-        STAKE_HUB.undelegate(_operator, shares);
         BNBX.burn(address(this), amountInBnbXToBurn);
+        STAKE_HUB.undelegate(_operator, shares);
+        // TODO: throw event and rename fn
     }
 
     /// @notice Complete the undelegation process.
@@ -188,9 +189,10 @@ contract StakeManagerV2 is
         BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnbondingBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 
-        STAKE_HUB.claim(batchRequest.operator, 1);
         batchRequest.isClaimable = true;
         firstUnbondingBatchIndex++;
+        STAKE_HUB.claim(batchRequest.operator, 1);
+        // TODO: throw event and rename fn
     }
 
     /// @notice Claim the BNB from a withdrawal request.
@@ -201,14 +203,13 @@ contract StakeManagerV2 is
         if (_idx >= userRequests[msg.sender].length) revert InvalidIndex();
 
         WithdrawalRequest storage request = withdrawalRequests[userRequests[msg.sender][_idx]];
+        request.claimed = true;
 
         uint256 amountInBnb = (batchWithdrawalRequests[request.batchId].amountInBnb * request.amountInBnbX)
             / batchWithdrawalRequests[request.batchId].amountInBnbX;
 
         (bool success,) = payable(msg.sender).call{ value: amountInBnb }("");
         if (!success) revert TransferFailed();
-
-        request.claimed = true;
 
         emit ClaimedWithdrawal(msg.sender, _idx, amountInBnb);
         return amountInBnb;
@@ -244,13 +245,14 @@ contract StakeManagerV2 is
 
     function updateER() external override onlyRole(MANAGER_ROLE) {
         uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
-        if (totalDelegated < totalPooledBnb) {
-            uint256 rewards = ((totalPooledBnb - totalDelegated) * feeBps) / 10_000;
+        uint256 totalDelegated_ = totalDelegated; // cei pattern
+        totalDelegated = totalPooledBnb;
+
+        if (totalDelegated_ < totalPooledBnb) {
+            uint256 rewards = ((totalPooledBnb - totalDelegated_) * feeBps) / 10_000;
             uint256 amountToMint = convertBnbToBnbX(rewards);
             BNBX.mint(staderTreasury, amountToMint);
         }
-
-        totalDelegated = totalPooledBnb;
     }
 
     /// @notice Delegate BNB to the preferred operator without minting BnbX.
