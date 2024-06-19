@@ -120,7 +120,7 @@ contract StakeManagerV2 is
         return requestId;
     }
 
-    function startUndelegation(
+    function startBatchUndelegation(
         uint256 _batchSize,
         address _operator
     )
@@ -179,7 +179,7 @@ contract StakeManagerV2 is
 
     /// @notice Complete the undelegation process.
     /// @dev This function can only be called by an address with the OPERATOR_ROLE.
-    function completeUndelegation() external override whenNotPaused nonReentrant onlyRole(OPERATOR_ROLE) {
+    function completeBatchUndelegation() external override whenNotPaused nonReentrant onlyRole(OPERATOR_ROLE) {
         BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnbondingBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 

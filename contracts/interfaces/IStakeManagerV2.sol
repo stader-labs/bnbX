@@ -32,8 +32,8 @@ interface IStakeManagerV2 {
     function claimWithdrawal(uint256 _idx) external returns (uint256);
     function redelegate(address _fromOperator, address _toOperator, uint256 _amount) external;
     function delegateWithoutMinting() external payable;
-    function completeUndelegation() external;
-    function startUndelegation(uint256 _batchSize, address _operator) external;
+    function completeBatchUndelegation() external;
+    function startBatchUndelegation(uint256 _batchSize, address _operator) external;
     function updateER() external;
     function pause() external;
     function unpause() external;
