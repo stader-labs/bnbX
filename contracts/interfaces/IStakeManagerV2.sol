@@ -19,7 +19,6 @@ struct BatchWithdrawalRequest {
 
 interface IStakeManagerV2 {
     error TransferFailed();
-    error DelegationAmountTooSmall();
     error OperatorNotExisted();
     error ZeroAmount();
     error ZeroAddress();

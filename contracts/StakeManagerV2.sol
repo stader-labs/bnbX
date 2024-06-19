@@ -93,10 +93,6 @@ contract StakeManagerV2 is
         nonReentrant
         returns (uint256)
     {
-        if (msg.value < STAKE_HUB.minDelegationBNBChange()) {
-            revert DelegationAmountTooSmall();
-        }
-
         uint256 amountToMint = convertBnbToBnbX(msg.value);
         BNBX.mint(msg.sender, amountToMint);
         _delegate();
@@ -240,9 +236,6 @@ contract StakeManagerV2 is
         }
         if (!OPERATOR_REGISTRY.operatorExists(_toOperator)) {
             revert OperatorNotExisted();
-        }
-        if (_amount < STAKE_HUB.minDelegationBNBChange()) {
-            revert DelegationAmountTooSmall();
         }
 
         uint256 shares = IStakeCredit(STAKE_HUB.getValidatorCreditContract(_fromOperator)).getSharesByPooledBNB(_amount);
