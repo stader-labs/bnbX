@@ -297,9 +297,9 @@ contract StakeManagerV2 is
     function convertBnbToBnbX(uint256 _amount) public view override returns (uint256) {
         uint256 totalShares = BNBX.totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
-        uint256 totalDelegate_ = totalDelegated == 0 ? 1 : totalDelegated;
+        uint256 totalDelegated_ = totalDelegated == 0 ? 1 : totalDelegated;
 
-        return (_amount * totalShares) / totalDelegate_;
+        return (_amount * totalShares) / totalDelegated_;
     }
 
     /// @notice Convert BnbX to BNB.
