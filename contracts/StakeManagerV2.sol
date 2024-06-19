@@ -69,20 +69,10 @@ contract StakeManagerV2 is
         feeBps = _feeBps;
     }
 
-    /// @notice Sets the address of the Stader Treasury.
-    /// @param _staderTreasury The new address of the Stader Treasury.
-    function setStaderTreasury(address _staderTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_staderTreasury != address(0)) revert ZeroAddress();
-        staderTreasury = _staderTreasury;
-        emit SetStaderTreasury(staderTreasury);
-    }
+    /// ------------------------------- user interactions -----------------------------------
 
-    function setFeeBps(uint256 _feeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        feeBps = _feeBps;
-        emit SetFeeBps(feeBps);
-    }
-
-    /// @notice Delegate BNB to the preferred operator.
+    /// @notice User delegates BNB to the preferred operator.
+    /// @dev preferred operator is set by protocol
     /// @param _referralId referral id of KOL
     /// @return The amount of BnbX minted.
     function delegate(string calldata _referralId)
@@ -101,7 +91,7 @@ contract StakeManagerV2 is
         return amountToMint;
     }
 
-    /// @notice Request to withdraw BnbX and get BNB back.
+    /// @notice user raises request to withdraw, i.e. provides BNBx and expects BNB later
     /// @param _amount The amount of BnbX to withdraw.
     /// @return The index of the withdrawal request.
     function requestWithdraw(uint256 _amount) external override whenNotPaused nonReentrant returns (uint256) {
@@ -119,6 +109,29 @@ contract StakeManagerV2 is
 
         return requestId;
     }
+
+    /// @notice Claim the BNB from a withdrawal request.
+    /// @param _idx The index of the withdrawal request.
+    /// @return The amount of BNB claimed.
+    function claimWithdrawal(uint256 _idx) external override whenNotPaused nonReentrant returns (uint256) {
+        if (userRequests[msg.sender].length == 0) revert NoWithdrawalRequests();
+        if (_idx >= userRequests[msg.sender].length) revert InvalidIndex();
+
+        WithdrawalRequest storage request = withdrawalRequests[userRequests[msg.sender][_idx]];
+        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[request.batchId];
+        if (batchRequest.isClaimable == false) revert Unbonding();
+
+        request.claimed = true;
+        uint256 amountInBnb = (batchRequest.amountInBnb * request.amountInBnbX) / batchRequest.amountInBnbX;
+
+        (bool success,) = payable(msg.sender).call{ value: amountInBnb }("");
+        if (!success) revert TransferFailed();
+
+        emit ClaimedWithdrawal(msg.sender, _idx, amountInBnb);
+        return amountInBnb;
+    }
+
+    /// ------------------------------- operational methods -----------------------------------
 
     function startBatchUndelegation(
         uint256 _batchSize,
@@ -189,27 +202,6 @@ contract StakeManagerV2 is
             // TODO: throw event and rename fn
     }
 
-    /// @notice Claim the BNB from a withdrawal request.
-    /// @param _idx The index of the withdrawal request.
-    /// @return The amount of BNB claimed.
-    function claimWithdrawal(uint256 _idx) external override whenNotPaused nonReentrant returns (uint256) {
-        if (userRequests[msg.sender].length == 0) revert NoWithdrawalRequests();
-        if (_idx >= userRequests[msg.sender].length) revert InvalidIndex();
-
-        WithdrawalRequest storage request = withdrawalRequests[userRequests[msg.sender][_idx]];
-        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[request.batchId];
-        if (batchRequest.isClaimable == false) revert Unbonding();
-
-        request.claimed = true;
-        uint256 amountInBnb = (batchRequest.amountInBnb * request.amountInBnbX) / batchRequest.amountInBnbX;
-
-        (bool success,) = payable(msg.sender).call{ value: amountInBnb }("");
-        if (!success) revert TransferFailed();
-
-        emit ClaimedWithdrawal(msg.sender, _idx, amountInBnb);
-        return amountInBnb;
-    }
-
     /// @notice Redelegate staked BNB from one operator to another.
     /// @param _fromOperator The address of the operator to redelegate from.
     /// @param _toOperator The address of the operator to redelegate to.
@@ -262,14 +254,6 @@ contract StakeManagerV2 is
         _delegate();
     }
 
-    function _delegate() internal {
-        address preferredOperatorAddress = OPERATOR_REGISTRY.preferredDepositOperator();
-        totalDelegated += msg.value;
-
-        STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
-        emit Delegated(preferredOperatorAddress, msg.value);
-    }
-
     /**
      * @dev Triggers stopped state.
      * Contract must not be paused
@@ -285,6 +269,23 @@ contract StakeManagerV2 is
     function unpause() external override onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
     }
+
+    /// ------------------------------- setters -----------------------------------
+
+    /// @notice Sets the address of the Stader Treasury.
+    /// @param _staderTreasury The new address of the Stader Treasury.
+    function setStaderTreasury(address _staderTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_staderTreasury != address(0)) revert ZeroAddress();
+        staderTreasury = _staderTreasury;
+        emit SetStaderTreasury(staderTreasury);
+    }
+
+    function setFeeBps(uint256 _feeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        feeBps = _feeBps;
+        emit SetFeeBps(feeBps);
+    }
+
+    /// ------------------------------- getters -----------------------------------
 
     function getUserRequests(address _user) external view returns (uint256[] memory) {
         return userRequests[_user];
@@ -330,5 +331,15 @@ contract StakeManagerV2 is
             totalStake += IStakeCredit(creditContract).getPooledBNB(address(this));
         }
         return totalStake;
+    }
+
+    /// ------------------------------- internal functions -----------------------------------
+
+    function _delegate() internal {
+        address preferredOperatorAddress = OPERATOR_REGISTRY.preferredDepositOperator();
+        totalDelegated += msg.value;
+
+        STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
+        emit Delegated(preferredOperatorAddress, msg.value);
     }
 }
