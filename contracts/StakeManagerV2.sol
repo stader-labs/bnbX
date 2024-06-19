@@ -228,9 +228,6 @@ contract StakeManagerV2 is
         nonReentrant
         onlyRole(MANAGER_ROLE)
     {
-        if (_fromOperator == address(0)) revert ZeroAddress();
-        if (_toOperator == address(0)) revert ZeroAddress();
-        if (_fromOperator == _toOperator) revert InvalidIndex();
         if (!OPERATOR_REGISTRY.operatorExists(_fromOperator)) {
             revert OperatorNotExisted();
         }
