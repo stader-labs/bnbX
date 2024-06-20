@@ -55,4 +55,7 @@ interface IStakeHub {
 
     function unbondPeriod() external view returns (uint256);
     function minDelegationBNBChange() external view returns (uint256);
+
+    function REDELEGATE_FEE_RATE_BASE() external view returns (uint256);
+    function redelegateFeeRate() external view returns (uint256);
 }

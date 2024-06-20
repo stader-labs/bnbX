@@ -26,8 +26,8 @@ contract StakeManagerV2 is
     IOperatorRegistry public OPERATOR_REGISTRY;
     IBnbX public BNBX;
     address public staderTreasury;
-    uint256 public lastIndex;
-    uint256 public lastUnprocessedIndex;
+    uint256 public firstUnprocessedUserIndex;
+    uint256 public firstUnbondingBatchIndex;
     uint256 public totalDelegated;
     uint256 public feeBps;
 
@@ -44,6 +44,7 @@ contract StakeManagerV2 is
     /// @param _operatorRegistry Address of the operator registry contract.
     /// @param _bnbX Address of the BnbX contract.
     function initialize(
+        address _admin,
         address _operatorRegistry,
         address _bnbX,
         address _staderTreasury,
@@ -52,6 +53,7 @@ contract StakeManagerV2 is
         external
         initializer
     {
+        if (_admin == address(0)) revert ZeroAddress();
         if (_operatorRegistry == address(0)) revert ZeroAddress();
         if (_bnbX == address(0)) revert ZeroAddress();
 
@@ -59,7 +61,7 @@ contract StakeManagerV2 is
         __Pausable_init();
         __ReentrancyGuard_init();
 
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(DEFAULT_ADMIN_ROLE, _admin);
 
         OPERATOR_REGISTRY = IOperatorRegistry(_operatorRegistry);
         BNBX = IBnbX(_bnbX);
@@ -91,13 +93,9 @@ contract StakeManagerV2 is
         nonReentrant
         returns (uint256)
     {
-        if (msg.value < STAKE_HUB.minDelegationBNBChange()) {
-            revert DelegationAmountTooSmall();
-        }
-
         uint256 amountToMint = convertBnbToBnbX(msg.value);
-        BNBX.mint(msg.sender, amountToMint);
         _delegate();
+        BNBX.mint(msg.sender, amountToMint);
 
         emit DelegateReferral(msg.sender, msg.value, amountToMint, _referralId);
         return amountToMint;
@@ -122,7 +120,7 @@ contract StakeManagerV2 is
         return requestId;
     }
 
-    function startUndelegation(
+    function startBatchUndelegation(
         uint256 _batchSize,
         address _operator
     )
@@ -143,16 +141,17 @@ contract StakeManagerV2 is
         address creditContract = STAKE_HUB.getValidatorCreditContract(_operator);
         uint256 pooledBnb = IStakeCredit(creditContract).getPooledBNB(address(this));
 
+        uint256 cummulativeBnbXToBurn;
         uint256 processedCount;
         uint256 amountInBnbXToBurn;
-        for (; lastIndex < withdrawalRequests.length && processedCount < _batchSize; lastIndex++) {
-            if (pooledBnb >= convertBnbXToBnb(amountInBnbXToBurn + withdrawalRequests[lastIndex].amountInBnbX)) {
-                amountInBnbXToBurn += withdrawalRequests[lastIndex].amountInBnbX;
-                if (!withdrawalRequests[lastIndex].processed) {
-                    withdrawalRequests[lastIndex].processed = true;
-                    withdrawalRequests[lastIndex].batchId = batchWithdrawalRequests.length;
-                    processedCount++;
-                }
+        while (firstUnprocessedUserIndex < withdrawalRequests.length && processedCount < _batchSize) {
+            cummulativeBnbXToBurn = amountInBnbXToBurn + withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
+            if (pooledBnb >= convertBnbXToBnb(cummulativeBnbXToBurn)) {
+                amountInBnbXToBurn = cummulativeBnbXToBurn;
+                withdrawalRequests[firstUnprocessedUserIndex].processed = true;
+                withdrawalRequests[firstUnprocessedUserIndex].batchId = batchWithdrawalRequests.length;
+                processedCount++;
+                firstUnprocessedUserIndex++;
             } else {
                 break;
             }
@@ -173,19 +172,21 @@ contract StakeManagerV2 is
         );
 
         uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(amountToWithdrawFromOperator);
-        STAKE_HUB.undelegate(_operator, shares);
         BNBX.burn(address(this), amountInBnbXToBurn);
+        STAKE_HUB.undelegate(_operator, shares);
+        // TODO: throw event and rename fn
     }
 
     /// @notice Complete the undelegation process.
     /// @dev This function can only be called by an address with the OPERATOR_ROLE.
-    function completeUndelegation() external override whenNotPaused nonReentrant onlyRole(OPERATOR_ROLE) {
-        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[lastUnprocessedIndex];
+    function completeBatchUndelegation() external override whenNotPaused nonReentrant onlyRole(OPERATOR_ROLE) {
+        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnbondingBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 
-        STAKE_HUB.claim(batchRequest.operator, 1);
         batchRequest.isClaimable = true;
-        lastUnprocessedIndex++;
+        firstUnbondingBatchIndex++;
+        STAKE_HUB.claim(batchRequest.operator, 1); // claims 1 request
+            // TODO: throw event and rename fn
     }
 
     /// @notice Claim the BNB from a withdrawal request.
@@ -196,14 +197,14 @@ contract StakeManagerV2 is
         if (_idx >= userRequests[msg.sender].length) revert InvalidIndex();
 
         WithdrawalRequest storage request = withdrawalRequests[userRequests[msg.sender][_idx]];
+        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[request.batchId];
+        if (batchRequest.isClaimable == false) revert Unbonding();
 
-        uint256 amountInBnb = (batchWithdrawalRequests[request.batchId].amountInBnb * request.amountInBnbX)
-            / batchWithdrawalRequests[request.batchId].amountInBnbX;
+        request.claimed = true;
+        uint256 amountInBnb = (batchRequest.amountInBnb * request.amountInBnbX) / batchRequest.amountInBnbX;
 
         (bool success,) = payable(msg.sender).call{ value: amountInBnb }("");
         if (!success) revert TransferFailed();
-
-        request.claimed = true;
 
         emit ClaimedWithdrawal(msg.sender, _idx, amountInBnb);
         return amountInBnb;
@@ -213,6 +214,8 @@ contract StakeManagerV2 is
     /// @param _fromOperator The address of the operator to redelegate from.
     /// @param _toOperator The address of the operator to redelegate to.
     /// @param _amount The amount of BNB to redelegate.
+    /// @dev redelegate has a fee associated with it. This fee will be consumed from TVL. See fn:getRedelegationFee()
+    /// @dev redelegate doesn't have a waiting period
     function redelegate(
         address _fromOperator,
         address _toOperator,
@@ -223,17 +226,11 @@ contract StakeManagerV2 is
         nonReentrant
         onlyRole(MANAGER_ROLE)
     {
-        if (_fromOperator == address(0)) revert ZeroAddress();
-        if (_toOperator == address(0)) revert ZeroAddress();
-        if (_fromOperator == _toOperator) revert InvalidIndex();
         if (!OPERATOR_REGISTRY.operatorExists(_fromOperator)) {
             revert OperatorNotExisted();
         }
         if (!OPERATOR_REGISTRY.operatorExists(_toOperator)) {
             revert OperatorNotExisted();
-        }
-        if (_amount < STAKE_HUB.minDelegationBNBChange()) {
-            revert DelegationAmountTooSmall();
         }
 
         uint256 shares = IStakeCredit(STAKE_HUB.getValidatorCreditContract(_fromOperator)).getSharesByPooledBNB(_amount);
@@ -245,13 +242,14 @@ contract StakeManagerV2 is
 
     function updateER() external override onlyRole(MANAGER_ROLE) {
         uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
-        if (totalDelegated < totalPooledBnb) {
-            uint256 rewards = ((totalPooledBnb - totalDelegated) * feeBps) / 10_000;
+        uint256 totalDelegated_ = totalDelegated; // cei pattern
+        totalDelegated = totalPooledBnb;
+
+        if (totalDelegated_ < totalPooledBnb) {
+            uint256 rewards = ((totalPooledBnb - totalDelegated_) * feeBps) / 10_000;
             uint256 amountToMint = convertBnbToBnbX(rewards);
             BNBX.mint(staderTreasury, amountToMint);
         }
-
-        totalDelegated = totalPooledBnb;
     }
 
     /// @notice Delegate BNB to the preferred operator without minting BnbX.
@@ -266,9 +264,9 @@ contract StakeManagerV2 is
 
     function _delegate() internal {
         address preferredOperatorAddress = OPERATOR_REGISTRY.preferredDepositOperator();
-        STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
         totalDelegated += msg.value;
 
+        STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
         emit Delegated(preferredOperatorAddress, msg.value);
     }
 
@@ -292,15 +290,22 @@ contract StakeManagerV2 is
         return userRequests[_user];
     }
 
+    /// @notice Get the fee associated with a redelegation.
+    /// @param _amount The amount of BNB to redelegate.
+    /// @return The fee associated with the redelegation.
+    function getRedelegationFee(uint256 _amount) external view returns (uint256) {
+        return (_amount * STAKE_HUB.redelegateFeeRate()) / STAKE_HUB.REDELEGATE_FEE_RATE_BASE();
+    }
+
     /// @notice Convert BNB to BnbX.
     /// @param _amount The amount of BNB to convert.
     /// @return The amount of BnbX equivalent.
     function convertBnbToBnbX(uint256 _amount) public view override returns (uint256) {
         uint256 totalShares = BNBX.totalSupply();
         totalShares = totalShares == 0 ? 1 : totalShares;
-        uint256 totalDelegate_ = totalDelegated == 0 ? 1 : totalDelegated;
+        uint256 totalDelegated_ = totalDelegated == 0 ? 1 : totalDelegated;
 
-        return (_amount * totalShares) / totalDelegate_;
+        return (_amount * totalShares) / totalDelegated_;
     }
 
     /// @notice Convert BnbX to BNB.
@@ -318,9 +323,10 @@ contract StakeManagerV2 is
     function getTotalStakeAcrossAllOperators() public view returns (uint256) {
         uint256 totalStake;
         uint256 operatorsLength = OPERATOR_REGISTRY.getOperatorsLength();
-        for (uint256 i; i < operatorsLength; ++i) {
-            address creditContract = STAKE_HUB.getValidatorCreditContract(OPERATOR_REGISTRY.getOperatorAt(i));
+        address[] memory operators = OPERATOR_REGISTRY.getOperators();
 
+        for (uint256 i; i < operatorsLength; ++i) {
+            address creditContract = STAKE_HUB.getValidatorCreditContract(operators[i]);
             totalStake += IStakeCredit(creditContract).getPooledBNB(address(this));
         }
         return totalStake;

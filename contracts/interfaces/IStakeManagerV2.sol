@@ -19,7 +19,6 @@ struct BatchWithdrawalRequest {
 
 interface IStakeManagerV2 {
     error TransferFailed();
-    error DelegationAmountTooSmall();
     error OperatorNotExisted();
     error ZeroAmount();
     error ZeroAddress();
@@ -33,14 +32,15 @@ interface IStakeManagerV2 {
     function claimWithdrawal(uint256 _idx) external returns (uint256);
     function redelegate(address _fromOperator, address _toOperator, uint256 _amount) external;
     function delegateWithoutMinting() external payable;
-    function completeUndelegation() external;
-    function startUndelegation(uint256 _batchSize, address _operator) external;
+    function completeBatchUndelegation() external;
+    function startBatchUndelegation(uint256 _batchSize, address _operator) external;
     function updateER() external;
     function pause() external;
     function unpause() external;
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
     function convertBnbXToBnb(uint256 _amountInBnbX) external view returns (uint256);
     function getUserRequests(address _user) external returns (uint256[] memory);
+    function getRedelegationFee(uint256 _amount) external view returns (uint256);
 
     event Delegated(address indexed _account, uint256 _amount);
     event RequestedWithdrawal(address indexed _account, uint256 _amountInBnbX);

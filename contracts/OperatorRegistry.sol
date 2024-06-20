@@ -35,12 +35,14 @@ contract OperatorRegistry is
     }
 
     /// @notice Initialize the OperatorRegistry contract.
-    function initialize() external initializer {
+    function initialize(address _admin) external initializer {
+        if (_admin == address(0)) revert ZeroAddress();
+
         __AccessControl_init();
         __Pausable_init();
         __ReentrancyGuard_init();
 
-        _setupRole(DEFAULT_ADMIN_ROLE, msg.sender);
+        _setupRole(DEFAULT_ADMIN_ROLE, _admin);
     }
 
     /// @notice Allows an operator that was already staked on the BNB stake manager
@@ -162,6 +164,11 @@ contract OperatorRegistry is
     /// @return True if the operator exists, false otherwise.
     function operatorExists(address _operator) external view override returns (bool) {
         return operatorSet.contains(_operator);
+    }
+
+    /// @notice Return the entire set in an array
+    function getOperators() external view override returns (address[] memory) {
+        return operatorSet.values();
     }
 
     /// -------------------------------Modifiers-----------------------------------
