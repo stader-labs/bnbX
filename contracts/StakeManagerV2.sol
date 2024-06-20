@@ -241,8 +241,7 @@ contract StakeManagerV2 is
     }
 
     /// @notice Update the ER.
-    /// @dev This function is called by the manager to update the ER.
-    function updateER() external override onlyRole(MANAGER_ROLE) {
+    function updateER() external override {
         uint256 currentER = convertBnbXToBnb(1 ether);
         uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
         uint256 totalDelegated_ = totalDelegated; // cei pattern
