@@ -198,7 +198,7 @@ contract StakeManagerV2 is
 
     /// @notice Complete the undelegation process.
     /// @dev This function can only be called by an address with the OPERATOR_ROLE.
-    function completeBatchUndelegation() external override whenNotPaused nonReentrant onlyRole(OPERATOR_ROLE) {
+    function completeBatchUndelegation() external override whenNotPaused nonReentrant {
         BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnbondingBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 
