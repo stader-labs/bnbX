@@ -159,25 +159,7 @@ contract StakeManagerV2 is
         }
 
         address creditContract = STAKE_HUB.getValidatorCreditContract(_operator);
-        uint256 pooledBnb = IStakeCredit(creditContract).getPooledBNB(address(this));
-
-        uint256 cummulativeBnbXToBurn;
-        uint256 processedCount;
-        uint256 amountInBnbXToBurn;
-        while (firstUnprocessedUserIndex < withdrawalRequests.length && processedCount < _batchSize) {
-            cummulativeBnbXToBurn = amountInBnbXToBurn + withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
-            if (pooledBnb >= convertBnbXToBnb(cummulativeBnbXToBurn)) {
-                amountInBnbXToBurn = cummulativeBnbXToBurn;
-                withdrawalRequests[firstUnprocessedUserIndex].processed = true;
-                withdrawalRequests[firstUnprocessedUserIndex].batchId = batchWithdrawalRequests.length;
-                processedCount++;
-                firstUnprocessedUserIndex++;
-            } else {
-                break;
-            }
-        }
-
-        if (amountInBnbXToBurn == 0) revert NoWithdrawalRequests();
+        uint256 amountInBnbXToBurn = _computeBnbXToBurn(_batchSize, creditContract);
         uint256 amountToWithdrawFromOperator = convertBnbXToBnb(amountInBnbXToBurn);
         totalDelegated -= amountToWithdrawFromOperator;
 
@@ -316,7 +298,7 @@ contract StakeManagerV2 is
         emit Delegated(preferredOperatorAddress, msg.value);
     }
 
-    /// @notice internal fn to check if new exchange rate is within limits
+    /// @dev internal fn to check if new exchange rate is within limits
     function _checkIfNewExchangeRateWithinLimits(uint256 currentER) internal {
         uint256 maxAllowableER = maxExchangeRateSlippageBps * currentER / 10_000;
         uint256 newER = convertBnbXToBnb(1 ether);
@@ -324,6 +306,38 @@ contract StakeManagerV2 is
             _pause();
             revert ExchangeRateTooHigh(currentER, maxAllowableER, newER);
         }
+    }
+
+    /// @dev internal fn to compute the amount of BNBX to burn for a batch
+    function _computeBnbXToBurn(
+        uint256 _batchSize,
+        address _creditContract
+    )
+        internal
+        returns (uint256 amountInBnbXToBurn)
+    {
+        uint256 pooledBnb = IStakeCredit(_creditContract).getPooledBNB(address(this));
+
+        uint256 cummulativeBnbXToBurn = amountInBnbXToBurn + withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
+        uint256 cummulativeBnbToWithdraw = convertBnbXToBnb(cummulativeBnbXToBurn);
+        uint256 processedCount;
+
+        while (
+            (processedCount < _batchSize) && (firstUnprocessedUserIndex < withdrawalRequests.length)
+                && (cummulativeBnbToWithdraw >= pooledBnb)
+        ) {
+            amountInBnbXToBurn = cummulativeBnbXToBurn;
+            withdrawalRequests[firstUnprocessedUserIndex].processed = true;
+            withdrawalRequests[firstUnprocessedUserIndex].batchId = batchWithdrawalRequests.length;
+            processedCount++;
+            firstUnprocessedUserIndex++;
+            // below line won't end up in infinite loop, these checks will stop it
+            // (processedCount < _batchSize) && (firstUnprocessedUserIndex < withdrawalRequests.length)
+            cummulativeBnbXToBurn += withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
+            cummulativeBnbToWithdraw = convertBnbXToBnb(cummulativeBnbXToBurn);
+        }
+
+        if (amountInBnbXToBurn == 0) revert NoWithdrawalRequests();
     }
 
     /*//////////////////////////////////////////////////////////////
