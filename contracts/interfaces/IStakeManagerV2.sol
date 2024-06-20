@@ -28,6 +28,7 @@ interface IStakeManagerV2 {
     error InvalidIndex();
     error AlreadyClaimed();
     error MaxLimitReached();
+    error ExchangeRateTooHigh(uint256 currentER, uint256 maxAllowableER, uint256 newER);
 
     function delegate(string calldata _referralId) external payable returns (uint256);
     function requestWithdraw(uint256 _amount) external returns (uint256);

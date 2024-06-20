@@ -25,12 +25,14 @@ contract StakeManagerV2 is
     IStakeHub public constant STAKE_HUB = IStakeHub(0x0000000000000000000000000000000000002002);
     IOperatorRegistry public OPERATOR_REGISTRY;
     IBnbX public BNBX;
+
     address public staderTreasury;
-    uint256 public firstUnprocessedUserIndex;
-    uint256 public firstUnbondingBatchIndex;
     uint256 public totalDelegated;
     uint256 public feeBps;
+    uint256 public maxExchangeRateSlippageBps;
     uint256 public maxActiveRequestsPerUser;
+    uint256 public firstUnprocessedUserIndex;
+    uint256 public firstUnbondingBatchIndex;
 
     WithdrawalRequest[] private withdrawalRequests;
     BatchWithdrawalRequest[] private batchWithdrawalRequests;
@@ -241,14 +243,15 @@ contract StakeManagerV2 is
     /// @notice Update the ER.
     /// @dev This function is called by the manager to update the ER.
     function updateER() external override onlyRole(MANAGER_ROLE) {
+        uint256 currentER = convertBnbXToBnb(1 ether);
         uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
         uint256 totalDelegated_ = totalDelegated; // cei pattern
         totalDelegated = totalPooledBnb;
-
         if (totalDelegated_ < totalPooledBnb) {
             uint256 rewards = ((totalPooledBnb - totalDelegated_) * feeBps) / 10_000;
             uint256 amountToMint = convertBnbToBnbX(rewards);
             BNBX.mint(staderTreasury, amountToMint);
+            _checkIfNewExchangeRateWithinLimits(currentER);
         }
     }
 
@@ -291,6 +294,7 @@ contract StakeManagerV2 is
     }
 
     function setFeeBps(uint256 _feeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_feeBps > 5000) revert MaxLimitReached();
         feeBps = _feeBps;
         emit SetFeeBps(feeBps);
     }
@@ -311,6 +315,16 @@ contract StakeManagerV2 is
 
         STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
         emit Delegated(preferredOperatorAddress, msg.value);
+    }
+
+    /// @notice internal fn to check if new exchange rate is within limits
+    function _checkIfNewExchangeRateWithinLimits(uint256 currentER) internal {
+        uint256 maxAllowableER = maxExchangeRateSlippageBps * currentER / 10_000;
+        uint256 newER = convertBnbXToBnb(1 ether);
+        if (newER > maxAllowableER) {
+            _pause();
+            revert ExchangeRateTooHigh(currentER, maxAllowableER, newER);
+        }
     }
 
     /*//////////////////////////////////////////////////////////////
