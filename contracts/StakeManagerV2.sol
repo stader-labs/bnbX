@@ -30,6 +30,7 @@ contract StakeManagerV2 is
     uint256 public firstUnbondingBatchIndex;
     uint256 public totalDelegated;
     uint256 public feeBps;
+    uint256 public maxActiveRequestsPerUser;
 
     WithdrawalRequest[] private withdrawalRequests;
     BatchWithdrawalRequest[] private batchWithdrawalRequests;
@@ -97,6 +98,7 @@ contract StakeManagerV2 is
     /// @return The index of the withdrawal request.
     function requestWithdraw(uint256 _amount) external override whenNotPaused nonReentrant returns (uint256) {
         if (_amount == 0) revert ZeroAmount();
+        if (userRequests[msg.sender].length >= maxActiveRequestsPerUser) revert MaxLimitReached();
 
         withdrawalRequests.push(
             WithdrawalRequest({ user: msg.sender, amountInBnbX: _amount, claimed: false, batchId: 0, processed: false })
@@ -293,6 +295,11 @@ contract StakeManagerV2 is
         emit SetFeeBps(feeBps);
     }
 
+    /// @notice set maxActiveRequestsPerUser
+    function setMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser) external onlyRole(MANAGER_ROLE) {
+        maxActiveRequestsPerUser = _maxActiveRequestsPerUser;
+    }
+
     /*//////////////////////////////////////////////////////////////
                         internal functions
     //////////////////////////////////////////////////////////////*/
@@ -310,9 +317,25 @@ contract StakeManagerV2 is
                             getters
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Get the withdrawal requests for a user.
+    /// @notice Get all withdrawal requests for a user.
     function getUserRequests(address _user) external view returns (uint256[] memory) {
         return userRequests[_user];
+    }
+
+    /// @notice Get the active withdrawal requests for a user.
+
+    function getActiveUserRequests(address _user) external view returns (uint256[] memory) {
+        uint256 numActiveRequests = getNumActiveUserRequests(_user);
+        uint256[] memory activeRequests = new uint256[](numActiveRequests);
+        for (uint256 i = 0; i < numActiveRequests; i++) {
+            activeRequests[i] = userRequests[_user][firstUnprocessedUserIndex + i];
+        }
+        return activeRequests;
+    }
+
+    /// @notice get num of active withdrawal requests
+    function getNumActiveUserRequests(address _user) public view returns (uint256) {
+        return userRequests[_user].length - firstUnprocessedUserIndex;
     }
 
     /// @notice Get the fee associated with a redelegation.

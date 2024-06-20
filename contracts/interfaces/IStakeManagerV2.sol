@@ -27,6 +27,7 @@ interface IStakeManagerV2 {
     error NoWithdrawalRequests();
     error InvalidIndex();
     error AlreadyClaimed();
+    error MaxLimitReached();
 
     function delegate(string calldata _referralId) external payable returns (uint256);
     function requestWithdraw(uint256 _amount) external returns (uint256);
