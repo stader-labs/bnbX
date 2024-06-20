@@ -26,6 +26,7 @@ interface IStakeManagerV2 {
     error NoOperatorsAvailable();
     error NoWithdrawalRequests();
     error InvalidIndex();
+    error AlreadyClaimed();
 
     function delegate(string calldata _referralId) external payable returns (uint256);
     function requestWithdraw(uint256 _amount) external returns (uint256);
@@ -49,4 +50,6 @@ interface IStakeManagerV2 {
     event DelegateReferral(address indexed _account, uint256 _amountInBnb, uint256 _amountInBnbX, string _referralId);
     event SetStaderTreasury(address _treasury);
     event SetFeeBps(uint256 _feeBps);
+    event CompletedBatchUndelegation(address indexed _operator, uint256 _amountInBnb);
+    event StartedBatchUndelegation(address indexed _operator, uint256 _amountInBnb, uint256 _amountInBnbX);
 }

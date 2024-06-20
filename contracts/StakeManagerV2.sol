@@ -120,6 +120,9 @@ contract StakeManagerV2 is
         return requestId;
     }
 
+    /// @notice Start the batch undelegation process.
+    /// @param _batchSize The size of the batch.
+    /// @param _operator The address of the operator to undelegate from.
     function startBatchUndelegation(
         uint256 _batchSize,
         address _operator
@@ -174,7 +177,8 @@ contract StakeManagerV2 is
         uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(amountToWithdrawFromOperator);
         BNBX.burn(address(this), amountInBnbXToBurn);
         STAKE_HUB.undelegate(_operator, shares);
-        // TODO: throw event and rename fn
+
+        emit StartedBatchUndelegation(_operator, amountToWithdrawFromOperator, amountInBnbXToBurn);
     }
 
     /// @notice Complete the undelegation process.
@@ -186,7 +190,8 @@ contract StakeManagerV2 is
         batchRequest.isClaimable = true;
         firstUnbondingBatchIndex++;
         STAKE_HUB.claim(batchRequest.operator, 1); // claims 1 request
-            // TODO: throw event and rename fn
+
+        emit CompletedBatchUndelegation(batchRequest.operator, batchRequest.amountInBnb);
     }
 
     /// @notice Claim the BNB from a withdrawal request.
@@ -197,8 +202,9 @@ contract StakeManagerV2 is
         if (_idx >= userRequests[msg.sender].length) revert InvalidIndex();
 
         WithdrawalRequest storage request = withdrawalRequests[userRequests[msg.sender][_idx]];
-        BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[request.batchId];
+        BatchWithdrawalRequest memory batchRequest = batchWithdrawalRequests[request.batchId];
         if (batchRequest.isClaimable == false) revert Unbonding();
+        if (request.claimed == true) revert AlreadyClaimed();
 
         request.claimed = true;
         uint256 amountInBnb = (batchRequest.amountInBnb * request.amountInBnbX) / batchRequest.amountInBnbX;
@@ -234,12 +240,13 @@ contract StakeManagerV2 is
         }
 
         uint256 shares = IStakeCredit(STAKE_HUB.getValidatorCreditContract(_fromOperator)).getSharesByPooledBNB(_amount);
-
         STAKE_HUB.redelegate(_fromOperator, _toOperator, shares, true);
 
         emit Redelegated(_fromOperator, _toOperator, _amount);
     }
 
+    /// @notice Update the ER.
+    /// @dev This function is called by the manager to update the ER.
     function updateER() external override onlyRole(MANAGER_ROLE) {
         uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
         uint256 totalDelegated_ = totalDelegated; // cei pattern
@@ -262,14 +269,6 @@ contract StakeManagerV2 is
         _delegate();
     }
 
-    function _delegate() internal {
-        address preferredOperatorAddress = OPERATOR_REGISTRY.preferredDepositOperator();
-        totalDelegated += msg.value;
-
-        STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
-        emit Delegated(preferredOperatorAddress, msg.value);
-    }
-
     /**
      * @dev Triggers stopped state.
      * Contract must not be paused
@@ -286,6 +285,16 @@ contract StakeManagerV2 is
         _unpause();
     }
 
+    /// @notice Delegate BNB to the preferred operator.
+    function _delegate() internal {
+        address preferredOperatorAddress = OPERATOR_REGISTRY.preferredDepositOperator();
+        totalDelegated += msg.value;
+
+        STAKE_HUB.delegate{ value: msg.value }(preferredOperatorAddress, true);
+        emit Delegated(preferredOperatorAddress, msg.value);
+    }
+
+    /// @notice Get the withdrawal requests for a user.
     function getUserRequests(address _user) external view returns (uint256[] memory) {
         return userRequests[_user];
     }
