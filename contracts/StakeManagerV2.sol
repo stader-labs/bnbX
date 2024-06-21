@@ -119,13 +119,11 @@ contract StakeManagerV2 is
     /// @param _idx The index of the withdrawal request.
     /// @return The amount of BNB claimed.
     function claimWithdrawal(uint256 _idx) external override whenNotPaused nonReentrant returns (uint256) {
-        if (userRequests[msg.sender].length == 0) revert NoWithdrawalRequests();
-        if (_idx >= userRequests[msg.sender].length) revert InvalidIndex();
+        WithdrawalRequest storage request = _extractRequest(msg.sender, _idx);
+        if (request.claimed == true) revert AlreadyClaimed();
 
-        WithdrawalRequest storage request = withdrawalRequests[userRequests[msg.sender][_idx]];
         BatchWithdrawalRequest memory batchRequest = batchWithdrawalRequests[request.batchId];
         if (batchRequest.isClaimable == false) revert Unbonding();
-        if (request.claimed == true) revert AlreadyClaimed();
 
         request.claimed = true;
         uint256 amountInBnb = (batchRequest.amountInBnb * request.amountInBnbX) / batchRequest.amountInBnbX;
@@ -298,6 +296,18 @@ contract StakeManagerV2 is
         emit Delegated(preferredOperatorAddress, msg.value);
     }
 
+    /// @dev extracts the withdrawal request and removes from userRequests
+    function _extractRequest(address _user, uint256 _idx) internal returns (WithdrawalRequest storage request) {
+        uint256 numUserRequests = userRequests[_user].length;
+        if (numUserRequests == 0) revert NoWithdrawalRequests();
+        if (_idx >= numUserRequests) revert InvalidIndex();
+
+        uint256 requestId = userRequests[_user][_idx];
+        userRequests[_user][_idx] = userRequests[_user][numUserRequests - 1];
+        userRequests[_user].pop();
+        return withdrawalRequests[requestId];
+    }
+
     /// @dev internal fn to check if new exchange rate is within limits
     function _checkIfNewExchangeRateWithinLimits(uint256 currentER) internal {
         uint256 maxAllowableER = maxExchangeRateSlippageBps * currentER / 10_000;
@@ -344,25 +354,9 @@ contract StakeManagerV2 is
                             getters
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Get all withdrawal requests for a user.
+    /// @notice Get withdrawal requests of a user
     function getUserRequests(address _user) external view returns (uint256[] memory) {
         return userRequests[_user];
-    }
-
-    /// @notice Get the active withdrawal requests for a user.
-
-    function getActiveUserRequests(address _user) external view returns (uint256[] memory) {
-        uint256 numActiveRequests = getNumActiveUserRequests(_user);
-        uint256[] memory activeRequests = new uint256[](numActiveRequests);
-        for (uint256 i = 0; i < numActiveRequests; i++) {
-            activeRequests[i] = userRequests[_user][firstUnprocessedUserIndex + i];
-        }
-        return activeRequests;
-    }
-
-    /// @notice get num of active withdrawal requests
-    function getNumActiveUserRequests(address _user) public view returns (uint256) {
-        return userRequests[_user].length - firstUnprocessedUserIndex;
     }
 
     /// @notice Get the fee associated with a redelegation.
