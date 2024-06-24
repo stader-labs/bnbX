@@ -220,23 +220,21 @@ contract StakeManagerV2 is
         emit Redelegated(_fromOperator, _toOperator, _amount);
     }
 
-    /// @notice Update the ER.
+    /// @notice Update the Exchange Rate
     function updateER() external override {
         uint256 currentER = convertBnbXToBnb(1 ether);
-        uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
-        uint256 totalDelegated_ = totalDelegated; // cei pattern
-        totalDelegated = totalPooledBnb;
-        if (totalDelegated_ < totalPooledBnb) {
-            uint256 rewards = ((totalPooledBnb - totalDelegated_) * feeBps) / 10_000;
-            uint256 amountToMint = convertBnbToBnbX(rewards);
-            BNBX.mint(staderTreasury, amountToMint);
-            _checkIfNewExchangeRateWithinLimits(currentER);
-        }
+        _updateER();
+        _checkIfNewExchangeRateWithinLimits(currentER);
+    }
+
+    /// @notice force update the exchange rate
+    function forceUpdateER() external onlyRole(DEFAULT_ADMIN_ROLE) {
+        _updateER();
     }
 
     /// @notice Delegate BNB to the preferred operator without minting BnbX.
-    /// @dev This function is useful for boosting staking rewards and for initial
-    ///      Fusion hardfork migration without affecting the token supply.
+    /// @dev This function is useful for boosting staking rewards and,
+    ///      for initial Fusion hardfork migration without affecting the token supply.
     /// @dev Can only be called by an address with the MANAGER_ROLE.
     function delegateWithoutMinting() external payable override onlyRole(MANAGER_ROLE) {
         if (BNBX.totalSupply() == 0) revert ZeroAmount();
@@ -308,13 +306,28 @@ contract StakeManagerV2 is
         return withdrawalRequests[requestId];
     }
 
+    /// @dev internal fn to update the exchange rate
+    function _updateER() internal {
+        uint256 totalPooledBnb = getActualStakeAcrossAllOperators();
+        _mintFees(totalPooledBnb);
+        totalDelegated = totalPooledBnb;
+    }
+
+    /// @dev internal fn to mint the fees to the stader treasury
+    function _mintFees(uint256 _totalPooledBnb) internal {
+        if (_totalPooledBnb <= totalDelegated) return;
+
+        uint256 feeInBnb = ((_totalPooledBnb - totalDelegated) * feeBps) / 10_000;
+        uint256 amountToMint = convertBnbToBnbX(feeInBnb);
+        BNBX.mint(staderTreasury, amountToMint);
+    }
+
     /// @dev internal fn to check if new exchange rate is within limits
-    function _checkIfNewExchangeRateWithinLimits(uint256 currentER) internal {
-        uint256 maxAllowableER = maxExchangeRateSlippageBps * currentER / 10_000;
+    function _checkIfNewExchangeRateWithinLimits(uint256 currentER) internal view {
+        uint256 maxAllowableDelta = maxExchangeRateSlippageBps * currentER / 10_000;
         uint256 newER = convertBnbXToBnb(1 ether);
-        if (newER > maxAllowableER) {
-            _pause();
-            revert ExchangeRateTooHigh(currentER, maxAllowableER, newER);
+        if ((newER > currentER + maxAllowableDelta) || (newER < currentER - maxAllowableDelta)) {
+            revert ExchangeRateOutOfBounds(currentER, maxAllowableDelta, newER);
         }
     }
 
@@ -388,8 +401,10 @@ contract StakeManagerV2 is
     }
 
     /// @notice Get the total stake across all operators.
+    /// @dev This is not stale
+    /// @dev gas expensive: use cautiously
     /// @return The total stake in BNB.
-    function getTotalStakeAcrossAllOperators() public view returns (uint256) {
+    function getActualStakeAcrossAllOperators() public view returns (uint256) {
         uint256 totalStake;
         uint256 operatorsLength = OPERATOR_REGISTRY.getOperatorsLength();
         address[] memory operators = OPERATOR_REGISTRY.getOperators();
