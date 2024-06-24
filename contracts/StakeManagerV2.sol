@@ -59,6 +59,7 @@ contract StakeManagerV2 is
         if (_admin == address(0)) revert ZeroAddress();
         if (_operatorRegistry == address(0)) revert ZeroAddress();
         if (_bnbX == address(0)) revert ZeroAddress();
+        if (_staderTreasury == address(0)) revert ZeroAddress();
 
         __AccessControl_init();
         __Pausable_init();
