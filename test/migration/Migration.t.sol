@@ -95,7 +95,11 @@ contract MigrationTest is Test {
         vm.prank(manager);
         stakeManagerV2.delegateWithoutMinting{ value: prevTVL }();
 
-        console2.log("v1: 1 BNBx to BNB:", stakeManagerV1.convertBnbXToBnb(1 ether));
-        console2.log("v2: 1 BNBx to BNB:", stakeManagerV2.convertBnbXToBnb(1 ether));
+        uint256 er1 = stakeManagerV1.convertBnbXToBnb(1 ether);
+        uint256 er2 = stakeManagerV2.convertBnbXToBnb(1 ether);
+        console2.log("v1: 1 BNBx to BNB:", er1);
+        console2.log("v2: 1 BNBx to BNB:", er2);
+
+        assertEq(er1, er2, "migrate funds failed");
     }
 }
