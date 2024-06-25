@@ -53,13 +53,7 @@ contract MigrationTest is Test {
 
         // deploy stake manager v2
         stakeManagerV2 = StakeManagerV2(_createProxy(address(new StakeManagerV2())));
-        stakeManagerV2.initialize(
-            admin,
-            address(operatorRegistry),
-            BNBx,
-            treasury,
-            100 // uint256 _feeBps
-        );
+        stakeManagerV2.initialize(admin, address(operatorRegistry), BNBx, treasury);
 
         // grant manager role to stake manager v2
         vm.startPrank(admin);
