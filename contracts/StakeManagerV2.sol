@@ -4,6 +4,7 @@ pragma solidity 0.8.25;
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import "./interfaces/IStakeHub.sol";
 import "./interfaces/IBnbX.sol";
@@ -19,17 +20,22 @@ contract StakeManagerV2 is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable
 {
+    using SafeERC20Upgradeable for IBnbX;
+
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
     IStakeHub public constant STAKE_HUB = IStakeHub(0x0000000000000000000000000000000000002002);
     IOperatorRegistry public OPERATOR_REGISTRY;
     IBnbX public BNBX;
+
     address public staderTreasury;
-    uint256 public firstUnprocessedUserIndex;
-    uint256 public firstUnbondingBatchIndex;
     uint256 public totalDelegated;
     uint256 public feeBps;
+    uint256 public maxExchangeRateSlippageBps;
+    uint256 public maxActiveRequestsPerUser;
+    uint256 public firstUnprocessedUserIndex;
+    uint256 public firstUnbondingBatchIndex;
 
     WithdrawalRequest[] private withdrawalRequests;
     BatchWithdrawalRequest[] private batchWithdrawalRequests;
@@ -56,6 +62,7 @@ contract StakeManagerV2 is
         if (_admin == address(0)) revert ZeroAddress();
         if (_operatorRegistry == address(0)) revert ZeroAddress();
         if (_bnbX == address(0)) revert ZeroAddress();
+        if (_staderTreasury == address(0)) revert ZeroAddress();
 
         __AccessControl_init();
         __Pausable_init();
@@ -97,6 +104,7 @@ contract StakeManagerV2 is
     /// @return The index of the withdrawal request.
     function requestWithdraw(uint256 _amount) external override whenNotPaused nonReentrant returns (uint256) {
         if (_amount == 0) revert ZeroAmount();
+        if (userRequests[msg.sender].length >= maxActiveRequestsPerUser) revert MaxLimitReached();
 
         withdrawalRequests.push(
             WithdrawalRequest({ user: msg.sender, amountInBnbX: _amount, claimed: false, batchId: 0, processed: false })
@@ -105,7 +113,7 @@ contract StakeManagerV2 is
         uint256 requestId = withdrawalRequests.length - 1;
         userRequests[msg.sender].push(requestId);
 
-        BNBX.transferFrom(msg.sender, address(this), _amount);
+        BNBX.safeTransferFrom(msg.sender, address(this), _amount);
         emit RequestedWithdrawal(msg.sender, _amount);
 
         return requestId;
@@ -115,13 +123,11 @@ contract StakeManagerV2 is
     /// @param _idx The index of the withdrawal request.
     /// @return The amount of BNB claimed.
     function claimWithdrawal(uint256 _idx) external override whenNotPaused nonReentrant returns (uint256) {
-        if (userRequests[msg.sender].length == 0) revert NoWithdrawalRequests();
-        if (_idx >= userRequests[msg.sender].length) revert InvalidIndex();
+        WithdrawalRequest storage request = _extractRequest(msg.sender, _idx);
+        if (request.claimed) revert AlreadyClaimed();
 
-        WithdrawalRequest storage request = withdrawalRequests[userRequests[msg.sender][_idx]];
         BatchWithdrawalRequest memory batchRequest = batchWithdrawalRequests[request.batchId];
-        if (batchRequest.isClaimable == false) revert Unbonding();
-        if (request.claimed == true) revert AlreadyClaimed();
+        if (!batchRequest.isClaimable) revert Unbonding();
 
         request.claimed = true;
         uint256 amountInBnb = (batchRequest.amountInBnb * request.amountInBnbX) / batchRequest.amountInBnbX;
@@ -155,25 +161,7 @@ contract StakeManagerV2 is
         }
 
         address creditContract = STAKE_HUB.getValidatorCreditContract(_operator);
-        uint256 pooledBnb = IStakeCredit(creditContract).getPooledBNB(address(this));
-
-        uint256 cummulativeBnbXToBurn;
-        uint256 processedCount;
-        uint256 amountInBnbXToBurn;
-        while (firstUnprocessedUserIndex < withdrawalRequests.length && processedCount < _batchSize) {
-            cummulativeBnbXToBurn = amountInBnbXToBurn + withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
-            if (pooledBnb >= convertBnbXToBnb(cummulativeBnbXToBurn)) {
-                amountInBnbXToBurn = cummulativeBnbXToBurn;
-                withdrawalRequests[firstUnprocessedUserIndex].processed = true;
-                withdrawalRequests[firstUnprocessedUserIndex].batchId = batchWithdrawalRequests.length;
-                processedCount++;
-                firstUnprocessedUserIndex++;
-            } else {
-                break;
-            }
-        }
-
-        if (amountInBnbXToBurn == 0) revert NoWithdrawalRequests();
+        uint256 amountInBnbXToBurn = _computeBnbXToBurn(_batchSize, creditContract);
         uint256 amountToWithdrawFromOperator = convertBnbXToBnb(amountInBnbXToBurn);
         totalDelegated -= amountToWithdrawFromOperator;
 
@@ -196,7 +184,7 @@ contract StakeManagerV2 is
 
     /// @notice Complete the undelegation process.
     /// @dev This function can only be called by an address with the OPERATOR_ROLE.
-    function completeBatchUndelegation() external override whenNotPaused nonReentrant onlyRole(OPERATOR_ROLE) {
+    function completeBatchUndelegation() external override whenNotPaused nonReentrant {
         BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnbondingBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 
@@ -236,23 +224,21 @@ contract StakeManagerV2 is
         emit Redelegated(_fromOperator, _toOperator, _amount);
     }
 
-    /// @notice Update the ER.
-    /// @dev This function is called by the manager to update the ER.
-    function updateER() external override onlyRole(MANAGER_ROLE) {
-        uint256 totalPooledBnb = getTotalStakeAcrossAllOperators();
-        uint256 totalDelegated_ = totalDelegated; // cei pattern
-        totalDelegated = totalPooledBnb;
+    /// @notice Update the Exchange Rate
+    function updateER() external override nonReentrant whenNotPaused {
+        uint256 currentER = convertBnbXToBnb(1 ether);
+        _updateER();
+        _checkIfNewExchangeRateWithinLimits(currentER);
+    }
 
-        if (totalDelegated_ < totalPooledBnb) {
-            uint256 rewards = ((totalPooledBnb - totalDelegated_) * feeBps) / 10_000;
-            uint256 amountToMint = convertBnbToBnbX(rewards);
-            BNBX.mint(staderTreasury, amountToMint);
-        }
+    /// @notice force update the exchange rate
+    function forceUpdateER() external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
+        _updateER();
     }
 
     /// @notice Delegate BNB to the preferred operator without minting BnbX.
-    /// @dev This function is useful for boosting staking rewards and for initial
-    ///      Fusion hardfork migration without affecting the token supply.
+    /// @dev This function is useful for boosting staking rewards and,
+    ///      for initial Fusion hardfork migration without affecting the token supply.
     /// @dev Can only be called by an address with the MANAGER_ROLE.
     function delegateWithoutMinting() external payable override onlyRole(MANAGER_ROLE) {
         if (BNBX.totalSupply() == 0) revert ZeroAmount();
@@ -285,12 +271,25 @@ contract StakeManagerV2 is
     function setStaderTreasury(address _staderTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_staderTreasury != address(0)) revert ZeroAddress();
         staderTreasury = _staderTreasury;
-        emit SetStaderTreasury(staderTreasury);
+        emit SetStaderTreasury(_staderTreasury);
     }
 
     function setFeeBps(uint256 _feeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_feeBps > 5000) revert MaxLimitReached();
         feeBps = _feeBps;
-        emit SetFeeBps(feeBps);
+        emit SetFeeBps(_feeBps);
+    }
+
+    /// @notice set maxActiveRequestsPerUser
+    function setMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        maxActiveRequestsPerUser = _maxActiveRequestsPerUser;
+        emit SetMaxActiveRequestsPerUser(_maxActiveRequestsPerUser);
+    }
+
+    /// @notice set maxExchangeRateSlippageBps
+    function setMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        maxExchangeRateSlippageBps = _maxExchangeRateSlippageBps;
+        emit SetMaxExchangeRateSlippageBps(_maxExchangeRateSlippageBps);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -306,11 +305,84 @@ contract StakeManagerV2 is
         emit Delegated(preferredOperatorAddress, msg.value);
     }
 
+    /// @dev extracts the withdrawal request and removes from userRequests
+    function _extractRequest(address _user, uint256 _idx) internal returns (WithdrawalRequest storage request) {
+        uint256[] storage userRequestsStorage = userRequests[_user];
+        // any change to userRequestsStorage will also be reflected in userRequests[_user]
+        // see ref: https://docs.soliditylang.org/en/v0.8.25/types.html#data-location-and-assignment-behavior
+        uint256 numUserRequests = userRequestsStorage.length;
+        if (numUserRequests == 0) revert NoWithdrawalRequests();
+        if (_idx >= numUserRequests) revert InvalidIndex();
+
+        uint256 requestId = userRequestsStorage[_idx];
+        userRequestsStorage[_idx] = userRequestsStorage[numUserRequests - 1];
+        userRequestsStorage.pop();
+        return withdrawalRequests[requestId];
+    }
+
+    /// @dev internal fn to update the exchange rate
+    function _updateER() internal {
+        uint256 totalPooledBnb = getActualStakeAcrossAllOperators();
+        _mintFees(totalPooledBnb);
+        totalDelegated = totalPooledBnb;
+    }
+
+    /// @dev internal fn to mint the fees to the stader treasury
+    function _mintFees(uint256 _totalPooledBnb) internal {
+        if (_totalPooledBnb <= totalDelegated) return;
+
+        uint256 feeInBnb = ((_totalPooledBnb - totalDelegated) * feeBps) / 10_000;
+        uint256 amountToMint = convertBnbToBnbX(feeInBnb);
+        BNBX.mint(staderTreasury, amountToMint);
+    }
+
+    /// @dev internal fn to check if new exchange rate is within limits
+    function _checkIfNewExchangeRateWithinLimits(uint256 currentER) internal {
+        uint256 maxAllowableDelta = maxExchangeRateSlippageBps * currentER / 10_000;
+        uint256 newER = convertBnbXToBnb(1 ether);
+        if ((newER > currentER + maxAllowableDelta) || (newER < currentER - maxAllowableDelta)) {
+            revert ExchangeRateOutOfBounds(currentER, maxAllowableDelta, newER);
+        }
+        emit ExchangeRateUpdated(currentER, newER);
+    }
+
+    /// @dev internal fn to compute the amount of BNBX to burn for a batch
+    function _computeBnbXToBurn(
+        uint256 _batchSize,
+        address _creditContract
+    )
+        internal
+        returns (uint256 amountInBnbXToBurn)
+    {
+        uint256 pooledBnb = IStakeCredit(_creditContract).getPooledBNB(address(this));
+
+        uint256 cummulativeBnbXToBurn = amountInBnbXToBurn + withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
+        uint256 cummulativeBnbToWithdraw = convertBnbXToBnb(cummulativeBnbXToBurn);
+        uint256 processedCount;
+
+        while (
+            (processedCount < _batchSize) && (firstUnprocessedUserIndex < withdrawalRequests.length)
+                && (cummulativeBnbToWithdraw >= pooledBnb)
+        ) {
+            amountInBnbXToBurn = cummulativeBnbXToBurn;
+            withdrawalRequests[firstUnprocessedUserIndex].processed = true;
+            withdrawalRequests[firstUnprocessedUserIndex].batchId = batchWithdrawalRequests.length;
+            processedCount++;
+            firstUnprocessedUserIndex++;
+            // below line won't end up in infinite loop, these checks will stop it
+            // (processedCount < _batchSize) && (firstUnprocessedUserIndex < withdrawalRequests.length)
+            cummulativeBnbXToBurn += withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
+            cummulativeBnbToWithdraw = convertBnbXToBnb(cummulativeBnbXToBurn);
+        }
+
+        if (amountInBnbXToBurn == 0) revert NoWithdrawalRequests();
+    }
+
     /*//////////////////////////////////////////////////////////////
                             getters
     //////////////////////////////////////////////////////////////*/
 
-    /// @notice Get the withdrawal requests for a user.
+    /// @notice Get withdrawal requests of a user
     function getUserRequests(address _user) external view returns (uint256[] memory) {
         return userRequests[_user];
     }
@@ -344,15 +416,20 @@ contract StakeManagerV2 is
     }
 
     /// @notice Get the total stake across all operators.
+    /// @dev This is not stale
+    /// @dev gas expensive: use cautiously
     /// @return The total stake in BNB.
-    function getTotalStakeAcrossAllOperators() public view returns (uint256) {
+    function getActualStakeAcrossAllOperators() public view returns (uint256) {
         uint256 totalStake;
         uint256 operatorsLength = OPERATOR_REGISTRY.getOperatorsLength();
         address[] memory operators = OPERATOR_REGISTRY.getOperators();
 
-        for (uint256 i; i < operatorsLength; ++i) {
+        for (uint256 i; i < operatorsLength;) {
             address creditContract = STAKE_HUB.getValidatorCreditContract(operators[i]);
             totalStake += IStakeCredit(creditContract).getPooledBNB(address(this));
+            unchecked {
+                ++i;
+            }
         }
         return totalStake;
     }

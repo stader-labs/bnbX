@@ -27,6 +27,8 @@ interface IStakeManagerV2 {
     error NoWithdrawalRequests();
     error InvalidIndex();
     error AlreadyClaimed();
+    error MaxLimitReached();
+    error ExchangeRateOutOfBounds(uint256 _currentER, uint256 _maxAllowableDelta, uint256 _newER);
 
     function delegate(string calldata _referralId) external payable returns (uint256);
     function requestWithdraw(uint256 _amount) external returns (uint256);
@@ -54,4 +56,7 @@ interface IStakeManagerV2 {
     event SetFeeBps(uint256 _feeBps);
     event CompletedBatchUndelegation(address indexed _operator, uint256 _amountInBnb);
     event StartedBatchUndelegation(address indexed _operator, uint256 _amountInBnb, uint256 _amountInBnbX);
+    event ExchangeRateUpdated(uint256 _currentER, uint256 _newER);
+    event SetMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser);
+    event SetMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps);
 }
