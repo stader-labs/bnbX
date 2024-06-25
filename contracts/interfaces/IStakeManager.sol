@@ -36,8 +36,6 @@ interface IStakeManager {
 
     function startDelegation() external payable returns (uint256 _uuid, uint256 _amount);
 
-    function retryTransferOut(uint256 _uuid) external payable;
-
     function completeDelegation(uint256 _uuid) external;
 
     function addRestakingRewards(uint256 _id, uint256 _amount) external;
@@ -94,8 +92,6 @@ interface IStakeManager {
         returns (bool _isClaimable, uint256 _amount);
 
     function getBnbXWithdrawLimit() external view returns (uint256 _bnbXWithdrawLimit);
-
-    function getExtraBnbInContract() external view returns (uint256 _extraBnb);
 
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
 

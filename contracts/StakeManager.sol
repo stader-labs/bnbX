@@ -164,25 +164,25 @@ contract StakeManager is IStakeManager, Initializable, PausableUpgradeable, Acce
         _tokenHubTransferOut(_amount, relayFeeReceived);
     }
 
-    function retryTransferOut(uint256 _uuid) external payable override whenNotPaused onlyManager {
-        uint256 tokenHubRelayFee = getTokenHubRelayFee();
-        uint256 relayFeeReceived = msg.value;
-        require(relayFeeReceived >= tokenHubRelayFee, "Insufficient RelayFee");
+    // function retryTransferOut(uint256 _uuid) external payable override whenNotPaused onlyManager {
+    //     uint256 tokenHubRelayFee = getTokenHubRelayFee();
+    //     uint256 relayFeeReceived = msg.value;
+    //     require(relayFeeReceived >= tokenHubRelayFee, "Insufficient RelayFee");
 
-        BotDelegateRequest storage botDelegateRequest = uuidToBotDelegateRequestMap[_uuid];
+    //     BotDelegateRequest storage botDelegateRequest = uuidToBotDelegateRequestMap[_uuid];
 
-        require(
-            isDelegationPending && (botDelegateRequest.startTime != 0) && (botDelegateRequest.endTime == 0),
-            "Invalid UUID"
-        );
+    //     require(
+    //         isDelegationPending && (botDelegateRequest.startTime != 0) && (botDelegateRequest.endTime == 0),
+    //         "Invalid UUID"
+    //     );
 
-        uint256 extraBNB = getExtraBnbInContract();
-        require(
-            (botDelegateRequest.amount == depositsBridgingOut) && (depositsBridgingOut <= extraBNB),
-            "Invalid BridgingOut Amount"
-        );
-        _tokenHubTransferOut(depositsBridgingOut, relayFeeReceived);
-    }
+    //     uint256 extraBNB = getExtraBnbInContract();
+    //     require(
+    //         (botDelegateRequest.amount == depositsBridgingOut) && (depositsBridgingOut <= extraBNB),
+    //         "Invalid BridgingOut Amount"
+    //     );
+    //     _tokenHubTransferOut(depositsBridgingOut, relayFeeReceived);
+    // }
 
     /**
      * @dev Allows bot to mark the delegateRequest as complete and update the state variables
@@ -245,7 +245,7 @@ contract StakeManager is IStakeManager, Initializable, PausableUpgradeable, Acce
         emit RequestWithdraw(msg.sender, _amountInBnbX);
     }
 
-    function claimWithdraw(uint256 _idx) external override whenNotPaused {
+    function claimWithdraw(uint256 _idx) external override {
         address user = msg.sender;
         WithdrawalRequest[] storage userRequests = userWithdrawalRequests[user];
 
@@ -327,6 +327,15 @@ contract StakeManager is IStakeManager, Initializable, PausableUpgradeable, Acce
         totalClaimableBnb += botUndelegateRequest.amount;
 
         emit Undelegate(_uuid, amount);
+    }
+
+    /**
+     * @notice extract funds to migrate
+     * @dev migrates to manager
+     */
+    function migrateFunds() external whenPaused onlyRole(DEFAULT_ADMIN_ROLE) {
+        (bool success,) = payable(manager).call{ value: depositsInContract }("");
+        require(success, "Transfer Failed");
     }
 
     ////////////////////////////////////////////////////////////
@@ -500,9 +509,9 @@ contract StakeManager is IStakeManager, Initializable, PausableUpgradeable, Acce
         _bnbXWithdrawLimit = convertBnbToBnbX(depositsDelegated) - totalBnbXToBurn;
     }
 
-    function getExtraBnbInContract() public view override returns (uint256 _extraBnb) {
-        _extraBnb = address(this).balance - depositsInContract - totalClaimableBnb;
-    }
+    // function getExtraBnbInContract() public view override returns (uint256 _extraBnb) {
+    //     _extraBnb = address(this).balance - depositsInContract - totalClaimableBnb;
+    // }
 
     ////////////////////////////////////////////////////////////
     /////                                                    ///
