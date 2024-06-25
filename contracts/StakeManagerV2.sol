@@ -47,14 +47,15 @@ contract StakeManagerV2 is
     }
 
     /// @notice Initialize the StakeManagerV2 contract.
+    /// @param _admin Address of the admin, which will be provided DEFAULT_ADMIN_ROLE
     /// @param _operatorRegistry Address of the operator registry contract.
     /// @param _bnbX Address of the BnbX contract.
+    /// @param _staderTreasury stader treasury address
     function initialize(
         address _admin,
         address _operatorRegistry,
         address _bnbX,
-        address _staderTreasury,
-        uint256 _feeBps
+        address _staderTreasury
     )
         external
         initializer
@@ -73,7 +74,9 @@ contract StakeManagerV2 is
         OPERATOR_REGISTRY = IOperatorRegistry(_operatorRegistry);
         BNBX = IBnbX(_bnbX);
         staderTreasury = _staderTreasury;
-        feeBps = _feeBps;
+        feeBps = 1000; // 10%
+        maxExchangeRateSlippageBps = 1000; // 10%
+        maxActiveRequestsPerUser = 10;
     }
 
     /*//////////////////////////////////////////////////////////////
