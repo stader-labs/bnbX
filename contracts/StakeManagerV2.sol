@@ -232,7 +232,7 @@ contract StakeManagerV2 is
     }
 
     /// @notice force update the exchange rate
-    function forceUpdateER() external onlyRole(DEFAULT_ADMIN_ROLE) {
+    function forceUpdateER() external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         _updateER();
     }
 
