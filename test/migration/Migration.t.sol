@@ -4,17 +4,21 @@ pragma solidity 0.8.25;
 import "forge-std/Test.sol";
 
 import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
-import { ProxyFactory } from "utils/deploy-utils/ProxyFactory.sol";
+import {
+    TransparentUpgradeableProxy,
+    ITransparentUpgradeableProxy
+} from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
 
 import { StakeManager } from "contracts/StakeManager.sol";
+import { BnbX } from "contracts/Bnbx.sol";
 import { StakeManagerV2 } from "contracts/StakeManagerV2.sol";
 import { OperatorRegistry } from "contracts/OperatorRegistry.sol";
 
 contract MigrationTest is Test {
     bytes32 public constant GENERIC_SALT = keccak256(abi.encodePacked("BNBX-MIGRATION"));
 
-    ProxyFactory public proxyFactory;
-    ProxyAdmin public proxyAdmin;
+    address public proxyAdmin;
+    address public timelock;
     address public admin;
     address public manager;
     address public staderOperator;
@@ -29,17 +33,17 @@ contract MigrationTest is Test {
     StakeManagerV2 public stakeManagerV2;
     OperatorRegistry public operatorRegistry;
 
-    function _createProxy(address impl) private returns (address) {
-        return proxyFactory.create(impl, address(proxyAdmin), GENERIC_SALT);
+    function _createProxy(address impl) private returns (address proxy) {
+        proxy = address(new TransparentUpgradeableProxy{ salt: GENERIC_SALT }(impl, proxyAdmin, ""));
     }
 
     function _deployAndSetupContracts() public {
         // deploy operator registry
         operatorRegistry = OperatorRegistry(_createProxy(address(new OperatorRegistry())));
-        operatorRegistry.initialize(admin);
+        operatorRegistry.initialize(devAddr);
 
-        // grant manager role to operator registry
-        vm.startPrank(admin);
+        // grant manager and operator role for operator registry
+        vm.startPrank(devAddr);
         operatorRegistry.grantRole(operatorRegistry.MANAGER_ROLE(), manager);
         operatorRegistry.grantRole(operatorRegistry.OPERATOR_ROLE(), staderOperator);
         vm.stopPrank();
@@ -53,41 +57,89 @@ contract MigrationTest is Test {
 
         // deploy stake manager v2
         stakeManagerV2 = StakeManagerV2(_createProxy(address(new StakeManagerV2())));
-        stakeManagerV2.initialize(admin, address(operatorRegistry), BNBx, treasury);
+        stakeManagerV2.initialize(devAddr, address(operatorRegistry), BNBx, treasury);
 
-        // grant manager role to stake manager v2
-        vm.startPrank(admin);
+        vm.startPrank(devAddr);
+        // grant manager role for stake manager v2
         stakeManagerV2.grantRole(stakeManagerV2.MANAGER_ROLE(), manager);
+        stakeManagerV2.grantRole(stakeManagerV2.OPERATOR_ROLE(), staderOperator);
+
+        // grant default admin role to admin
+        stakeManagerV2.grantRole(stakeManagerV2.DEFAULT_ADMIN_ROLE(), admin);
+        operatorRegistry.grantRole(operatorRegistry.DEFAULT_ADMIN_ROLE(), admin);
+
+        // renounce DEFAULT_ADMIN_ROLE from devAddr
+        stakeManagerV2.renounceRole(stakeManagerV2.DEFAULT_ADMIN_ROLE(), devAddr);
+        operatorRegistry.renounceRole(operatorRegistry.DEFAULT_ADMIN_ROLE(), devAddr);
+
         vm.stopPrank();
+
+        // assert only admin has DEFAULT_ADMIN_ROLE in both the contracts
+        assertTrue(stakeManagerV2.hasRole(stakeManagerV2.DEFAULT_ADMIN_ROLE(), admin));
+        assertTrue(operatorRegistry.hasRole(operatorRegistry.DEFAULT_ADMIN_ROLE(), admin));
+
+        assertFalse(stakeManagerV2.hasRole(stakeManagerV2.DEFAULT_ADMIN_ROLE(), devAddr));
+        assertFalse(operatorRegistry.hasRole(operatorRegistry.DEFAULT_ADMIN_ROLE(), devAddr));
+    }
+
+    function _upgradeAndSetupContracts() public {
+        address stakeManagerV1Impl = address(new StakeManager());
+
+        vm.prank(timelock);
+        ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(address(stakeManagerV1)), stakeManagerV1Impl);
     }
 
     function setUp() public {
         string memory rpcUrl = vm.envString("BSC_MAINNET_RPC_URL");
         vm.createSelectFork(rpcUrl);
 
-        admin = makeAddr("admin");
-        manager = makeAddr("manager");
+        proxyAdmin = 0xF90e293D34a42CB592Be6BE6CA19A9963655673C; // old proxy admin with timelock 0xD990A252E7e36700d47520e46cD2B3E446836488
+        timelock = 0xD990A252E7e36700d47520e46cD2B3E446836488;
+        admin = 0xb866E12b414d9f975034C4BA51498E6E64559a4c; // external multisig
+        manager = 0x79A2Ae748AC8bE4118B7a8096681B30310c3adBE; // internal multisig
         staderOperator = makeAddr("stader-operator");
         treasury = makeAddr("treasury");
 
-        devAddr = makeAddr("dev"); // may change it to your own address
-        proxyFactory = new ProxyFactory();
-
-        vm.prank(admin);
-        proxyAdmin = new ProxyAdmin(); // msg.sender becomes the owner of ProxyAdmin
+        devAddr = address(this); // may change it to your own address
 
         stakeManagerV1 = StakeManager(payable(0x7276241a669489E4BBB76f63d2A43Bfe63080F2F));
 
         _deployAndSetupContracts();
+        _upgradeAndSetupContracts();
     }
 
     function test_migrateFunds() public {
-        uint256 prevTVL = stakeManagerV1.getTotalPooledBnb();
-        // bring funds to manager
-        vm.deal(manager, prevTVL);
+        uint256 prevManagerBal = manager.balance;
+        uint256 depositsInContractV1 = stakeManagerV1.depositsInContract();
 
-        vm.prank(manager);
+        // admin extracts funds from stake manager v1
+        // depositsInContractV1 funds are sent to manager
+        vm.startPrank(manager); // internal multisig holds default_admin_role
+        stakeManagerV1.togglePause(); // pause stake manager v1
+        stakeManagerV1.migrateFunds();
+        vm.stopPrank();
+        assertEq(manager.balance, prevManagerBal + depositsInContractV1);
+
+        // claimWallet
+        address claimWallet = 0xDfB508E262B683EC52D533B80242Ae74087BC7EB;
+
+        // assumption : claim wallet has atleast depositDelegatedV1
+        uint256 depositDelegatedV1 = stakeManagerV1.depositsDelegated();
+        vm.deal(claimWallet, depositDelegatedV1 + 0.1 ether);
+
+        // claim wallet sends depositDelegatedV1 funds to manager
+        vm.prank(claimWallet);
+        (bool success,) = payable(manager).call{ value: depositDelegatedV1 }("");
+        require(success, "claim_wallet to manager transfer failed");
+
+        // assert manager has right balance
+        uint256 prevTVL = stakeManagerV1.getTotalPooledBnb();
+        assertEq(manager.balance, prevManagerBal + prevTVL);
+
+        vm.startPrank(manager);
+        stakeManagerV2.pause();
         stakeManagerV2.delegateWithoutMinting{ value: prevTVL }();
+        vm.stopPrank();
 
         uint256 er1 = stakeManagerV1.convertBnbXToBnb(1 ether);
         uint256 er2 = stakeManagerV2.convertBnbXToBnb(1 ether);
@@ -95,5 +147,21 @@ contract MigrationTest is Test {
         console2.log("v2: 1 BNBx to BNB:", er2);
 
         assertEq(er1, er2, "migrate funds failed");
+
+        // set stake Manager on BnbX
+        vm.prank(timelock);
+        BnbX(BNBx).setStakeManager(address(stakeManagerV2));
+
+        vm.prank(admin);
+        stakeManagerV2.unpause();
+
+        // simple delegate test
+        address user = makeAddr("user");
+        vm.deal(user, 2 ether);
+
+        vm.prank(user);
+        stakeManagerV2.delegate{ value: er2 }("referral");
+
+        assertApproxEqAbs(BnbX(BNBx).balanceOf(user), 1 ether, 2);
     }
 }
