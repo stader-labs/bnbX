@@ -62,6 +62,7 @@ contract StakeManagerV2 is
         if (_admin == address(0)) revert ZeroAddress();
         if (_operatorRegistry == address(0)) revert ZeroAddress();
         if (_bnbX == address(0)) revert ZeroAddress();
+        if (_staderTreasury == address(0)) revert ZeroAddress();
 
         __AccessControl_init();
         __Pausable_init();
@@ -123,10 +124,10 @@ contract StakeManagerV2 is
     /// @return The amount of BNB claimed.
     function claimWithdrawal(uint256 _idx) external override whenNotPaused nonReentrant returns (uint256) {
         WithdrawalRequest storage request = _extractRequest(msg.sender, _idx);
-        if (request.claimed == true) revert AlreadyClaimed();
+        if (request.claimed) revert AlreadyClaimed();
 
         BatchWithdrawalRequest memory batchRequest = batchWithdrawalRequests[request.batchId];
-        if (batchRequest.isClaimable == false) revert Unbonding();
+        if (!batchRequest.isClaimable) revert Unbonding();
 
         request.claimed = true;
         uint256 amountInBnb = (batchRequest.amountInBnb * request.amountInBnbX) / batchRequest.amountInBnbX;
@@ -224,7 +225,7 @@ contract StakeManagerV2 is
     }
 
     /// @notice Update the Exchange Rate
-    function updateER() external override {
+    function updateER() external override nonReentrant whenNotPaused {
         uint256 currentER = convertBnbXToBnb(1 ether);
         _updateER();
         _checkIfNewExchangeRateWithinLimits(currentER);
@@ -270,23 +271,25 @@ contract StakeManagerV2 is
     function setStaderTreasury(address _staderTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_staderTreasury != address(0)) revert ZeroAddress();
         staderTreasury = _staderTreasury;
-        emit SetStaderTreasury(staderTreasury);
+        emit SetStaderTreasury(_staderTreasury);
     }
 
     function setFeeBps(uint256 _feeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_feeBps > 5000) revert MaxLimitReached();
         feeBps = _feeBps;
-        emit SetFeeBps(feeBps);
+        emit SetFeeBps(_feeBps);
     }
 
     /// @notice set maxActiveRequestsPerUser
     function setMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser) external onlyRole(DEFAULT_ADMIN_ROLE) {
         maxActiveRequestsPerUser = _maxActiveRequestsPerUser;
+        emit SetMaxActiveRequestsPerUser(_maxActiveRequestsPerUser);
     }
 
     /// @notice set maxExchangeRateSlippageBps
     function setMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
         maxExchangeRateSlippageBps = _maxExchangeRateSlippageBps;
+        emit SetMaxExchangeRateSlippageBps(_maxExchangeRateSlippageBps);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -304,13 +307,16 @@ contract StakeManagerV2 is
 
     /// @dev extracts the withdrawal request and removes from userRequests
     function _extractRequest(address _user, uint256 _idx) internal returns (WithdrawalRequest storage request) {
-        uint256 numUserRequests = userRequests[_user].length;
+        uint256[] storage userRequestsStorage = userRequests[_user];
+        // any change to userRequestsStorage will also be reflected in userRequests[_user]
+        // see ref: https://docs.soliditylang.org/en/v0.8.25/types.html#data-location-and-assignment-behavior
+        uint256 numUserRequests = userRequestsStorage.length;
         if (numUserRequests == 0) revert NoWithdrawalRequests();
         if (_idx >= numUserRequests) revert InvalidIndex();
 
-        uint256 requestId = userRequests[_user][_idx];
-        userRequests[_user][_idx] = userRequests[_user][numUserRequests - 1];
-        userRequests[_user].pop();
+        uint256 requestId = userRequestsStorage[_idx];
+        userRequestsStorage[_idx] = userRequestsStorage[numUserRequests - 1];
+        userRequestsStorage.pop();
         return withdrawalRequests[requestId];
     }
 
@@ -331,12 +337,13 @@ contract StakeManagerV2 is
     }
 
     /// @dev internal fn to check if new exchange rate is within limits
-    function _checkIfNewExchangeRateWithinLimits(uint256 currentER) internal view {
+    function _checkIfNewExchangeRateWithinLimits(uint256 currentER) internal {
         uint256 maxAllowableDelta = maxExchangeRateSlippageBps * currentER / 10_000;
         uint256 newER = convertBnbXToBnb(1 ether);
         if ((newER > currentER + maxAllowableDelta) || (newER < currentER - maxAllowableDelta)) {
             revert ExchangeRateOutOfBounds(currentER, maxAllowableDelta, newER);
         }
+        emit ExchangeRateUpdated(currentER, newER);
     }
 
     /// @dev internal fn to compute the amount of BNBX to burn for a batch
@@ -417,9 +424,12 @@ contract StakeManagerV2 is
         uint256 operatorsLength = OPERATOR_REGISTRY.getOperatorsLength();
         address[] memory operators = OPERATOR_REGISTRY.getOperators();
 
-        for (uint256 i; i < operatorsLength; ++i) {
+        for (uint256 i; i < operatorsLength;) {
             address creditContract = STAKE_HUB.getValidatorCreditContract(operators[i]);
             totalStake += IStakeCredit(creditContract).getPooledBNB(address(this));
+            unchecked {
+                ++i;
+            }
         }
         return totalStake;
     }

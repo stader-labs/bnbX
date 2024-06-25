@@ -56,4 +56,7 @@ interface IStakeManagerV2 {
     event SetFeeBps(uint256 _feeBps);
     event CompletedBatchUndelegation(address indexed _operator, uint256 _amountInBnb);
     event StartedBatchUndelegation(address indexed _operator, uint256 _amountInBnb, uint256 _amountInBnbX);
+    event ExchangeRateUpdated(uint256 _currentER, uint256 _newER);
+    event SetMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser);
+    event SetMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps);
 }
