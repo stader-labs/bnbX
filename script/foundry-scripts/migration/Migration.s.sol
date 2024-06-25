@@ -81,6 +81,7 @@ contract Migration is Script {
         devAddr = msg.sender;
 
         vm.startBroadcast(); // the executer will become msg.sender
+        console.log("deploying contracts by: ", msg.sender);
         _deployAndSetupContracts();
         vm.stopBroadcast();
 
