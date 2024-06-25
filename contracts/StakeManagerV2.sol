@@ -280,8 +280,13 @@ contract StakeManagerV2 is
     }
 
     /// @notice set maxActiveRequestsPerUser
-    function setMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser) external onlyRole(MANAGER_ROLE) {
+    function setMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser) external onlyRole(DEFAULT_ADMIN_ROLE) {
         maxActiveRequestsPerUser = _maxActiveRequestsPerUser;
+    }
+
+    /// @notice set maxExchangeRateSlippageBps
+    function setMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        maxExchangeRateSlippageBps = _maxExchangeRateSlippageBps;
     }
 
     /*//////////////////////////////////////////////////////////////
