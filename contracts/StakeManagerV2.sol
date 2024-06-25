@@ -4,6 +4,7 @@ pragma solidity 0.8.25;
 import "@openzeppelin/contracts-upgradeable/security/PausableUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
 import "@openzeppelin/contracts-upgradeable/security/ReentrancyGuardUpgradeable.sol";
+import "@openzeppelin/contracts-upgradeable/token/ERC20/utils/SafeERC20Upgradeable.sol";
 
 import "./interfaces/IStakeHub.sol";
 import "./interfaces/IBnbX.sol";
@@ -19,6 +20,8 @@ contract StakeManagerV2 is
     PausableUpgradeable,
     ReentrancyGuardUpgradeable
 {
+    using SafeERC20Upgradeable for IBnbX;
+
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
@@ -109,7 +112,7 @@ contract StakeManagerV2 is
         uint256 requestId = withdrawalRequests.length - 1;
         userRequests[msg.sender].push(requestId);
 
-        BNBX.transferFrom(msg.sender, address(this), _amount);
+        BNBX.safeTransferFrom(msg.sender, address(this), _amount);
         emit RequestedWithdrawal(msg.sender, _amount);
 
         return requestId;
