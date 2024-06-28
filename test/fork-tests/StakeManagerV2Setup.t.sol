@@ -95,7 +95,7 @@ contract StakeManagerV2Setup is Test {
         vm.stopPrank();
 
         // deploy stake manager v2
-        stakeManagerV2 = StakeManagerV2(_createProxy(address(new StakeManagerV2())));
+        stakeManagerV2 = StakeManagerV2(payable(_createProxy(address(new StakeManagerV2()))));
         stakeManagerV2.initialize(devAddr, address(operatorRegistry), bnbxAddr, treasury);
 
         vm.startPrank(devAddr);

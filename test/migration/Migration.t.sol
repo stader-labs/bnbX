@@ -56,7 +56,7 @@ contract Migration is Test {
         operatorRegistry.setPreferredDepositOperator(bscOperator);
 
         // deploy stake manager v2
-        stakeManagerV2 = StakeManagerV2(_createProxy(address(new StakeManagerV2())));
+        stakeManagerV2 = StakeManagerV2(payable(_createProxy(address(new StakeManagerV2()))));
         stakeManagerV2.initialize(devAddr, address(operatorRegistry), BNBx, treasury);
 
         vm.startPrank(devAddr);
