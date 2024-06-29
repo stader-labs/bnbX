@@ -46,6 +46,8 @@ contract StakeManagerV2 is
         _disableInitializers();
     }
 
+    receive() external payable { }
+
     /// @notice Initialize the StakeManagerV2 contract.
     /// @param _admin Address of the admin, which will be provided DEFAULT_ADMIN_ROLE
     /// @param _operatorRegistry Address of the operator registry contract.
@@ -123,7 +125,7 @@ contract StakeManagerV2 is
     }
 
     /// @notice Claim the BNB from a withdrawal request.
-    /// @param _idx The index of the withdrawal request.
+    /// @param _idx user withdraw request array index
     /// @return The amount of BNB claimed.
     function claimWithdrawal(uint256 _idx) external override whenNotPaused nonReentrant returns (uint256) {
         WithdrawalRequest storage request = _extractRequest(msg.sender, _idx);
@@ -365,7 +367,7 @@ contract StakeManagerV2 is
 
         while (
             (processedCount < _batchSize) && (firstUnprocessedUserIndex < withdrawalRequests.length)
-                && (cummulativeBnbToWithdraw >= pooledBnb)
+                && (cummulativeBnbToWithdraw <= pooledBnb)
         ) {
             amountInBnbXToBurn = cummulativeBnbXToBurn;
             withdrawalRequests[firstUnprocessedUserIndex].processed = true;
@@ -386,8 +388,28 @@ contract StakeManagerV2 is
     //////////////////////////////////////////////////////////////*/
 
     /// @notice Get withdrawal requests of a user
-    function getUserRequests(address _user) external view returns (uint256[] memory) {
+    function getUserRequestIds(address _user) external view returns (uint256[] memory) {
         return userRequests[_user];
+    }
+
+    /// @notice get user request info by request Id
+    function getUserRequestInfo(uint256 _requestId) external view returns (WithdrawalRequest memory) {
+        return withdrawalRequests[_requestId];
+    }
+
+    /// @notice total number of user withdraw requests
+    function getWithdrawalRequestCount() external view returns (uint256) {
+        return withdrawalRequests.length;
+    }
+
+    /// @notice get batch withdrawal request info by batch Id
+    function getBatchWithdrawalRequestInfo(uint256 _batchId) external view returns (BatchWithdrawalRequest memory) {
+        return batchWithdrawalRequests[_batchId];
+    }
+
+    /// @notice total number of batch withdrawal requests
+    function getBatchWithdrawalRequestCount() external view returns (uint256) {
+        return batchWithdrawalRequests.length;
     }
 
     /// @notice Get the fee associated with a redelegation.

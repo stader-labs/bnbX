@@ -44,7 +44,7 @@ interface IStakeManagerV2 {
 
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
     function convertBnbXToBnb(uint256 _amountInBnbX) external view returns (uint256);
-    function getUserRequests(address _user) external returns (uint256[] memory);
+    function getUserRequestIds(address _user) external returns (uint256[] memory);
     function getRedelegationFee(uint256 _amount) external view returns (uint256);
 
     event Delegated(address indexed _account, uint256 _amount);

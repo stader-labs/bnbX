@@ -49,7 +49,7 @@ contract Migration is Script {
 
         // deploy stake manager v2
         console2.log("deploying stake manager v2...");
-        StakeManagerV2 stakeManagerV2 = StakeManagerV2(_createProxy(address(new StakeManagerV2())));
+        StakeManagerV2 stakeManagerV2 = StakeManagerV2(payable(_createProxy(address(new StakeManagerV2()))));
         stakeManagerV2.initialize(devAddr, address(operatorRegistry), BNBx, treasury);
 
         // grant manager role for stake manager v2
