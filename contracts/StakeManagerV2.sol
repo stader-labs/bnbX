@@ -167,7 +167,8 @@ contract StakeManagerV2 is
 
         address creditContract = STAKE_HUB.getValidatorCreditContract(_operator);
         uint256 amountInBnbXToBurn = _computeBnbXToBurn(_batchSize, creditContract);
-        uint256 amountToWithdrawFromOperator = convertBnbXToBnb(amountInBnbXToBurn);
+        uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(convertBnbXToBnb(amountInBnbXToBurn));
+        uint256 amountToWithdrawFromOperator = IStakeCredit(creditContract).getPooledBNBByShares(shares);
         totalDelegated -= amountToWithdrawFromOperator;
 
         batchWithdrawalRequests.push(
@@ -180,7 +181,6 @@ contract StakeManagerV2 is
             })
         );
 
-        uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(amountToWithdrawFromOperator);
         BNBX.burn(address(this), amountInBnbXToBurn);
         STAKE_HUB.undelegate(_operator, shares);
 
