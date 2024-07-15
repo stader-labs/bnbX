@@ -36,6 +36,7 @@ contract StakeManagerV2 is
     uint256 public maxActiveRequestsPerUser;
     uint256 public firstUnprocessedUserIndex;
     uint256 public firstUnbondingBatchIndex;
+    uint256 public minWithdrawableBnbx;
 
     WithdrawalRequest[] private withdrawalRequests;
     BatchWithdrawalRequest[] private batchWithdrawalRequests;
@@ -79,6 +80,7 @@ contract StakeManagerV2 is
         feeBps = 1000; // 10%
         maxExchangeRateSlippageBps = 1000; // 10%
         maxActiveRequestsPerUser = 10;
+        minWithdrawableBnbx = 1e15;
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -108,7 +110,7 @@ contract StakeManagerV2 is
     /// @param _amount The amount of BnbX to withdraw.
     /// @return The index of the withdrawal request.
     function requestWithdraw(uint256 _amount) external override whenNotPaused nonReentrant returns (uint256) {
-        if (_amount == 0) revert ZeroAmount();
+        if (_amount < minWithdrawableBnbx) revert WithdrawalBelowMinimum();
         if (userRequests[msg.sender].length >= maxActiveRequestsPerUser) revert MaxLimitReached();
 
         withdrawalRequests.push(
@@ -143,6 +145,10 @@ contract StakeManagerV2 is
         emit ClaimedWithdrawal(msg.sender, _idx, amountInBnb);
         return amountInBnb;
     }
+
+    /*//////////////////////////////////////////////////////////////
+                          operational methods
+    //////////////////////////////////////////////////////////////*/
 
     /// @notice Start the batch undelegation process.
     /// @param _batchSize The size of the batch.
@@ -295,6 +301,12 @@ contract StakeManagerV2 is
     function setMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
         maxExchangeRateSlippageBps = _maxExchangeRateSlippageBps;
         emit SetMaxExchangeRateSlippageBps(_maxExchangeRateSlippageBps);
+    }
+
+    /// @notice set minWithdrawableBnbx
+    function setMinWithdrawableBnbx(uint256 _minWithdrawableBnbx) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        minWithdrawableBnbx = _minWithdrawableBnbx;
+        emit SetMinWithdrawableBnbx(_minWithdrawableBnbx);
     }
 
     /*//////////////////////////////////////////////////////////////
