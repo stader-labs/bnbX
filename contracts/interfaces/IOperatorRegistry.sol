@@ -11,6 +11,7 @@ interface IOperatorRegistry {
     error OperatorIsPreferredWithdrawal();
     error DelegationExists();
     error ZeroAddress();
+    error NegligibleAmountTooHigh();
 
     event AddedOperator(address indexed _operator);
     event RemovedOperator(address indexed _operator);

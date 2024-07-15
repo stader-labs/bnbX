@@ -26,6 +26,7 @@ contract OperatorRegistry is
     IStakeHub public constant STAKE_HUB = IStakeHub(0x0000000000000000000000000000000000002002);
     address public override preferredDepositOperator;
     address public override preferredWithdrawalOperator;
+    uint256 public negligibleAmount;
 
     EnumerableSet.AddressSet private operatorSet;
 
@@ -41,6 +42,8 @@ contract OperatorRegistry is
         __AccessControl_init();
         __Pausable_init();
         __ReentrancyGuard_init();
+
+        negligibleAmount = 1e10;
 
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
     }
@@ -85,7 +88,9 @@ contract OperatorRegistry is
             revert OperatorIsPreferredWithdrawal();
         }
 
-        if (IStakeCredit(STAKE_HUB.getValidatorCreditContract(_operator)).getPooledBNB(address(this)) != 0) {
+        if (
+            IStakeCredit(STAKE_HUB.getValidatorCreditContract(_operator)).getPooledBNB(address(this)) > negligibleAmount
+        ) {
             revert DelegationExists();
         }
 
@@ -126,6 +131,13 @@ contract OperatorRegistry is
         preferredWithdrawalOperator = _operator;
 
         emit SetPreferredWithdrawalOperator(preferredWithdrawalOperator);
+    }
+
+    /// @notice Allows to set the negligible amount.
+    /// @param _negligibleAmount The negligible amount.
+    function setNegligibleAmount(uint256 _negligibleAmount) external nonReentrant onlyRole(MANAGER_ROLE) {
+        if (_negligibleAmount > 1e10) revert NegligibleAmountTooHigh();
+        negligibleAmount = _negligibleAmount;
     }
 
     /**
