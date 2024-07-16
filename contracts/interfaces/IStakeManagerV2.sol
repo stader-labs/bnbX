@@ -32,7 +32,7 @@ interface IStakeManagerV2 {
     error WithdrawalBelowMinimum();
 
     function delegate(string calldata _referralId) external payable returns (uint256);
-    function requestWithdraw(uint256 _amount) external returns (uint256);
+    function requestWithdraw(uint256 _amount, string calldata _referralId) external returns (uint256);
     function claimWithdrawal(uint256 _idx) external returns (uint256);
 
     function startBatchUndelegation(uint256 _batchSize, address _operator) external;
@@ -49,7 +49,7 @@ interface IStakeManagerV2 {
     function getRedelegationFee(uint256 _amount) external view returns (uint256);
 
     event Delegated(address indexed _account, uint256 _amount);
-    event RequestedWithdrawal(address indexed _account, uint256 _amountInBnbX);
+    event RequestedWithdrawal(address indexed _account, uint256 _amountInBnbX, string _referralId);
     event ClaimedWithdrawal(address indexed _account, uint256 _index, uint256 _amountInBnb);
     event Redelegated(address indexed _fromOperator, address indexed _toOperator, uint256 _amountInBnb);
     event DelegateReferral(address indexed _account, uint256 _amountInBnb, uint256 _amountInBnbX, string _referralId);

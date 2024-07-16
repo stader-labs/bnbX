@@ -109,7 +109,16 @@ contract StakeManagerV2 is
     /// @notice Request to withdraw BnbX and get BNB back.
     /// @param _amount The amount of BnbX to withdraw.
     /// @return The index of the withdrawal request.
-    function requestWithdraw(uint256 _amount) external override whenNotPaused nonReentrant returns (uint256) {
+    function requestWithdraw(
+        uint256 _amount,
+        string calldata _referralId
+    )
+        external
+        override
+        whenNotPaused
+        nonReentrant
+        returns (uint256)
+    {
         if (_amount < minWithdrawableBnbx) revert WithdrawalBelowMinimum();
         if (userRequests[msg.sender].length >= maxActiveRequestsPerUser) revert MaxLimitReached();
 
@@ -121,7 +130,7 @@ contract StakeManagerV2 is
         userRequests[msg.sender].push(requestId);
 
         BNBX.safeTransferFrom(msg.sender, address(this), _amount);
-        emit RequestedWithdrawal(msg.sender, _amount);
+        emit RequestedWithdrawal(msg.sender, _amount, _referralId);
 
         return requestId;
     }
