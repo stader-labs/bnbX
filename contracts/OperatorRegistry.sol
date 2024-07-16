@@ -54,7 +54,6 @@ contract OperatorRegistry is
     function addOperator(address _operator)
         external
         override
-        whenNotPaused
         nonReentrant
         whenOperatorDoesNotExist(_operator)
         onlyRole(MANAGER_ROLE)
@@ -75,7 +74,6 @@ contract OperatorRegistry is
     function removeOperator(address _operator)
         external
         override
-        whenNotPaused
         nonReentrant
         whenOperatorDoesExist(_operator)
         onlyRole(MANAGER_ROLE)
