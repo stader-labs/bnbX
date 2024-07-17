@@ -226,7 +226,7 @@ contract StakeManagerV2 is
     /// @param _fromOperator The address of the operator to redelegate from.
     /// @param _toOperator The address of the operator to redelegate to.
     /// @param _amount The amount of BNB to redelegate.
-    /// @dev redelegate has a fee associated with it. This fee will be consumed from TVL. See fn:getRedelegationFee()
+    /// @dev redelegate has a fee associated with it. Protocol needs to provide the exact redelegation fee while executing. See fn:getRedelegationFee()
     /// @dev redelegate doesn't have a waiting period
     function redelegate(
         address _fromOperator,
@@ -234,6 +234,7 @@ contract StakeManagerV2 is
         uint256 _amount
     )
         external
+        payable
         override
         nonReentrant
         onlyRole(MANAGER_ROLE)
@@ -244,10 +245,12 @@ contract StakeManagerV2 is
         if (!OPERATOR_REGISTRY.operatorExists(_toOperator)) {
             revert OperatorNotExisted();
         }
+        if (msg.value != getRedelegationFee(_amount)) revert RedelegationFeeMismatch();
 
+        // NOTE: we do not need to update `totalDelegated` as we compensate the redelegation fee
         uint256 shares = IStakeCredit(STAKE_HUB.getValidatorCreditContract(_fromOperator)).getSharesByPooledBNB(_amount);
         STAKE_HUB.redelegate(_fromOperator, _toOperator, shares, true);
-
+        STAKE_HUB.delegate{ value: msg.value }(_toOperator, true);
         emit Redelegated(_fromOperator, _toOperator, _amount);
     }
 
@@ -442,7 +445,7 @@ contract StakeManagerV2 is
     /// @notice Get the fee associated with a redelegation.
     /// @param _amount The amount of BNB to redelegate.
     /// @return The fee associated with the redelegation.
-    function getRedelegationFee(uint256 _amount) external view returns (uint256) {
+    function getRedelegationFee(uint256 _amount) public view returns (uint256) {
         return (_amount * STAKE_HUB.redelegateFeeRate()) / STAKE_HUB.REDELEGATE_FEE_RATE_BASE();
     }
 
