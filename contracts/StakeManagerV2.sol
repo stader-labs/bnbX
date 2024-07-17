@@ -123,7 +123,13 @@ contract StakeManagerV2 is
         if (userRequests[msg.sender].length >= maxActiveRequestsPerUser) revert MaxLimitReached();
 
         withdrawalRequests.push(
-            WithdrawalRequest({ user: msg.sender, amountInBnbX: _amount, claimed: false, batchId: 0, processed: false })
+            WithdrawalRequest({
+                user: msg.sender,
+                amountInBnbX: _amount,
+                claimed: false,
+                batchId: type(uint256).max,
+                processed: false
+            })
         );
 
         uint256 requestId = withdrawalRequests.length - 1;
@@ -141,6 +147,7 @@ contract StakeManagerV2 is
     function claimWithdrawal(uint256 _idx) external override whenNotPaused nonReentrant returns (uint256) {
         WithdrawalRequest storage request = _extractRequest(msg.sender, _idx);
         if (request.claimed) revert AlreadyClaimed();
+        if (!request.processed) revert NotProcessed();
 
         BatchWithdrawalRequest memory batchRequest = batchWithdrawalRequests[request.batchId];
         if (!batchRequest.isClaimable) revert Unbonding();

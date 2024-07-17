@@ -27,6 +27,7 @@ interface IStakeManagerV2 {
     error NoWithdrawalRequests();
     error InvalidIndex();
     error AlreadyClaimed();
+    error NotProcessed();
     error MaxLimitReached();
     error ExchangeRateOutOfBounds(uint256 _currentER, uint256 _maxAllowableDelta, uint256 _newER);
     error WithdrawalBelowMinimum();
