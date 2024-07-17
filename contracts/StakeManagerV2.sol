@@ -306,8 +306,11 @@ contract StakeManagerV2 is
         emit SetStaderTreasury(_staderTreasury);
     }
 
+    /// @notice set feeBps
+    /// @dev updates exchange rate before setting the new feeBps
     function setFeeBps(uint256 _feeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_feeBps > 5000) revert MaxLimitReached();
+        updateER();
         feeBps = _feeBps;
         emit SetFeeBps(_feeBps);
     }
