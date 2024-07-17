@@ -169,6 +169,7 @@ contract StakeManagerV2 is
     /// @notice Start the batch undelegation process.
     /// @param _batchSize The size of the batch.
     /// @param _operator The address of the operator to undelegate from.
+    /// @dev This function can only be called by an address with the OPERATOR_ROLE.
     function startBatchUndelegation(
         uint256 _batchSize,
         address _operator
@@ -212,7 +213,6 @@ contract StakeManagerV2 is
     }
 
     /// @notice Complete the undelegation process.
-    /// @dev This function can only be called by an address with the OPERATOR_ROLE.
     function completeBatchUndelegation() external override whenNotPaused nonReentrant {
         BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnbondingBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
@@ -230,6 +230,7 @@ contract StakeManagerV2 is
     /// @param _amount The amount of BNB to redelegate.
     /// @dev redelegate has a fee associated with it. Protocol needs to provide the exact redelegation fee while executing. See fn:getRedelegationFee()
     /// @dev redelegate doesn't have a waiting period
+    /// @dev This function can only be called by an address with the MANAGER_ROLE.
     function redelegate(
         address _fromOperator,
         address _toOperator,
@@ -264,6 +265,7 @@ contract StakeManagerV2 is
     }
 
     /// @notice force update the exchange rate
+    /// @dev This function can only be called by an address with the DEFAULT_ADMIN_ROLE.
     function forceUpdateER() external nonReentrant onlyRole(DEFAULT_ADMIN_ROLE) {
         _updateER();
     }
@@ -279,16 +281,18 @@ contract StakeManagerV2 is
     }
 
     /**
-     * @dev Triggers stopped state.
-     * Contract must not be paused
+     * @notice Triggers stopped state.
+     * @dev Contract must not be paused
+     * @dev Can only be called by an address with the MANAGER_ROLE.
      */
     function pause() external override onlyRole(MANAGER_ROLE) {
         _pause();
     }
 
     /**
-     * @dev Returns to normal state.
-     * Contract must be paused
+     * @notice Returns to normal state.
+     * @dev Contract must be paused
+     * @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
      */
     function unpause() external override onlyRole(DEFAULT_ADMIN_ROLE) {
         _unpause();
@@ -300,6 +304,7 @@ contract StakeManagerV2 is
 
     /// @notice Sets the address of the Stader Treasury.
     /// @param _staderTreasury The new address of the Stader Treasury.
+    /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
     function setStaderTreasury(address _staderTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_staderTreasury != address(0)) revert ZeroAddress();
         staderTreasury = _staderTreasury;
@@ -308,6 +313,7 @@ contract StakeManagerV2 is
 
     /// @notice set feeBps
     /// @dev updates exchange rate before setting the new feeBps
+    /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
     function setFeeBps(uint256 _feeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_feeBps > 5000) revert MaxLimitReached();
         updateER();
@@ -316,18 +322,21 @@ contract StakeManagerV2 is
     }
 
     /// @notice set maxActiveRequestsPerUser
+    /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
     function setMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser) external onlyRole(DEFAULT_ADMIN_ROLE) {
         maxActiveRequestsPerUser = _maxActiveRequestsPerUser;
         emit SetMaxActiveRequestsPerUser(_maxActiveRequestsPerUser);
     }
 
     /// @notice set maxExchangeRateSlippageBps
+    /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
     function setMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
         maxExchangeRateSlippageBps = _maxExchangeRateSlippageBps;
         emit SetMaxExchangeRateSlippageBps(_maxExchangeRateSlippageBps);
     }
 
     /// @notice set minWithdrawableBnbx
+    /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
     function setMinWithdrawableBnbx(uint256 _minWithdrawableBnbx) external onlyRole(DEFAULT_ADMIN_ROLE) {
         minWithdrawableBnbx = _minWithdrawableBnbx;
         emit SetMinWithdrawableBnbx(_minWithdrawableBnbx);
