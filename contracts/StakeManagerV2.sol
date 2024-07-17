@@ -187,6 +187,8 @@ contract StakeManagerV2 is
             revert OperatorNotExisted();
         }
 
+        updateER();
+
         address creditContract = STAKE_HUB.getValidatorCreditContract(_operator);
         uint256 amountInBnbXToBurn = _computeBnbXToBurn(_batchSize, creditContract);
         uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(convertBnbXToBnb(amountInBnbXToBurn));
@@ -255,7 +257,7 @@ contract StakeManagerV2 is
     }
 
     /// @notice Update the Exchange Rate
-    function updateER() external override nonReentrant whenNotPaused {
+    function updateER() public override nonReentrant whenNotPaused {
         uint256 currentER = convertBnbXToBnb(1 ether);
         _updateER();
         _checkIfNewExchangeRateWithinLimits(currentER);
