@@ -389,23 +389,22 @@ contract StakeManagerV2 is
     {
         uint256 pooledBnb = IStakeCredit(_creditContract).getPooledBNB(address(this));
 
-        uint256 cummulativeBnbXToBurn = amountInBnbXToBurn + withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
-        uint256 cummulativeBnbToWithdraw = convertBnbXToBnb(cummulativeBnbXToBurn);
+        uint256 cummulativeBnbXToBurn;
+        uint256 cummulativeBnbToWithdraw;
         uint256 processedCount;
 
-        while (
-            (processedCount < _batchSize) && (firstUnprocessedUserIndex < withdrawalRequests.length)
-                && (cummulativeBnbToWithdraw <= pooledBnb)
-        ) {
+        while ((processedCount < _batchSize) && (firstUnprocessedUserIndex < withdrawalRequests.length)) {
+            cummulativeBnbXToBurn += withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
+            cummulativeBnbToWithdraw = convertBnbXToBnb(cummulativeBnbXToBurn);
+            if (cummulativeBnbToWithdraw > pooledBnb) break;
+
             amountInBnbXToBurn = cummulativeBnbXToBurn;
             withdrawalRequests[firstUnprocessedUserIndex].processed = true;
             withdrawalRequests[firstUnprocessedUserIndex].batchId = batchWithdrawalRequests.length;
-            processedCount++;
-            firstUnprocessedUserIndex++;
-            // below line won't end up in infinite loop, these checks will stop it
-            // (processedCount < _batchSize) && (firstUnprocessedUserIndex < withdrawalRequests.length)
-            cummulativeBnbXToBurn += withdrawalRequests[firstUnprocessedUserIndex].amountInBnbX;
-            cummulativeBnbToWithdraw = convertBnbXToBnb(cummulativeBnbXToBurn);
+            unchecked {
+                ++processedCount;
+                ++firstUnprocessedUserIndex;
+            }
         }
 
         if (amountInBnbXToBurn == 0) revert NoWithdrawalRequests();

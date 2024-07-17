@@ -28,7 +28,7 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
 
     function testFuzz_userWithdraw(uint256 bnbxToWithdraw) public {
         uint256 userBnbxBalance = BnbX(bnbxAddr).balanceOf(user1);
-        vm.assume(bnbxToWithdraw > 0);
+        vm.assume(bnbxToWithdraw >= stakeManagerV2.minWithdrawableBnbx());
         vm.assume(bnbxToWithdraw <= userBnbxBalance);
 
         assertEq(stakeManagerV2.getUserRequestIds(user1).length, 0);
@@ -45,10 +45,12 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
         assertEq(stakeManagerV2.getUserRequestIds(user1).length, 3);
         assertEq(stakeManagerV2.getUserRequestIds(user2).length, 3);
 
-        vm.prank(staderOperator);
+        vm.startPrank(staderOperator);
         stakeManagerV2.startBatchUndelegation(2, address(0));
+        stakeManagerV2.startBatchUndelegation(6, address(0));
+        vm.stopPrank();
 
-        assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), 1);
+        assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), 2);
 
         vm.warp(block.timestamp + STAKE_HUB.unbondPeriod() + 1);
 
