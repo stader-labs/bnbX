@@ -27,16 +27,19 @@ interface IStakeManagerV2 {
     error NoWithdrawalRequests();
     error InvalidIndex();
     error AlreadyClaimed();
+    error NotProcessed();
     error MaxLimitReached();
     error ExchangeRateOutOfBounds(uint256 _currentER, uint256 _maxAllowableDelta, uint256 _newER);
+    error WithdrawalBelowMinimum();
+    error RedelegationFeeMismatch();
 
     function delegate(string calldata _referralId) external payable returns (uint256);
-    function requestWithdraw(uint256 _amount) external returns (uint256);
+    function requestWithdraw(uint256 _amount, string calldata _referralId) external returns (uint256);
     function claimWithdrawal(uint256 _idx) external returns (uint256);
 
     function startBatchUndelegation(uint256 _batchSize, address _operator) external;
     function completeBatchUndelegation() external;
-    function redelegate(address _fromOperator, address _toOperator, uint256 _amount) external;
+    function redelegate(address _fromOperator, address _toOperator, uint256 _amount) external payable;
     function delegateWithoutMinting() external payable;
     function updateER() external;
     function pause() external;
@@ -48,7 +51,7 @@ interface IStakeManagerV2 {
     function getRedelegationFee(uint256 _amount) external view returns (uint256);
 
     event Delegated(address indexed _account, uint256 _amount);
-    event RequestedWithdrawal(address indexed _account, uint256 _amountInBnbX);
+    event RequestedWithdrawal(address indexed _account, uint256 _amountInBnbX, string _referralId);
     event ClaimedWithdrawal(address indexed _account, uint256 _index, uint256 _amountInBnb);
     event Redelegated(address indexed _fromOperator, address indexed _toOperator, uint256 _amountInBnb);
     event DelegateReferral(address indexed _account, uint256 _amountInBnb, uint256 _amountInBnbX, string _referralId);
@@ -59,4 +62,5 @@ interface IStakeManagerV2 {
     event ExchangeRateUpdated(uint256 _currentER, uint256 _newER);
     event SetMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser);
     event SetMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps);
+    event SetMinWithdrawableBnbx(uint256 _minWithdrawableBnbx);
 }

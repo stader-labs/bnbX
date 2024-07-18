@@ -23,18 +23,18 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
     function test_revertWhenWithdrawAmountIsZero() public {
         vm.expectRevert();
         vm.prank(user1);
-        stakeManagerV2.requestWithdraw(0);
+        stakeManagerV2.requestWithdraw(0, "");
     }
 
     function testFuzz_userWithdraw(uint256 bnbxToWithdraw) public {
         uint256 userBnbxBalance = BnbX(bnbxAddr).balanceOf(user1);
-        vm.assume(bnbxToWithdraw > 0);
+        vm.assume(bnbxToWithdraw >= stakeManagerV2.minWithdrawableBnbx());
         vm.assume(bnbxToWithdraw <= userBnbxBalance);
 
         assertEq(stakeManagerV2.getUserRequestIds(user1).length, 0);
 
         vm.prank(user1);
-        stakeManagerV2.requestWithdraw(bnbxToWithdraw);
+        stakeManagerV2.requestWithdraw(bnbxToWithdraw, "");
 
         assertEq(stakeManagerV2.getUserRequestIds(user1).length, 1);
     }
@@ -45,10 +45,12 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
         assertEq(stakeManagerV2.getUserRequestIds(user1).length, 3);
         assertEq(stakeManagerV2.getUserRequestIds(user2).length, 3);
 
-        vm.prank(staderOperator);
+        vm.startPrank(staderOperator);
         stakeManagerV2.startBatchUndelegation(2, address(0));
+        stakeManagerV2.startBatchUndelegation(6, address(0));
+        vm.stopPrank();
 
-        assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), 1);
+        assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), 2);
 
         vm.warp(block.timestamp + STAKE_HUB.unbondPeriod() + 1);
 
@@ -64,18 +66,18 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
 
     function _batchUndelegateSetup(uint256 bnbxAmount1, uint256 bnbxAmount2) internal {
         vm.prank(user1);
-        stakeManagerV2.requestWithdraw(bnbxAmount1);
+        stakeManagerV2.requestWithdraw(bnbxAmount1, "");
         vm.prank(user2);
-        stakeManagerV2.requestWithdraw(bnbxAmount2);
+        stakeManagerV2.requestWithdraw(bnbxAmount2, "");
 
         vm.prank(user1);
-        stakeManagerV2.requestWithdraw(bnbxAmount1);
+        stakeManagerV2.requestWithdraw(bnbxAmount1, "");
         vm.prank(user2);
-        stakeManagerV2.requestWithdraw(bnbxAmount2);
+        stakeManagerV2.requestWithdraw(bnbxAmount2, "");
 
         vm.prank(user1);
-        stakeManagerV2.requestWithdraw(bnbxAmount1);
+        stakeManagerV2.requestWithdraw(bnbxAmount1, "");
         vm.prank(user2);
-        stakeManagerV2.requestWithdraw(bnbxAmount2);
+        stakeManagerV2.requestWithdraw(bnbxAmount2, "");
     }
 }
