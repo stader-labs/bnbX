@@ -379,8 +379,7 @@ contract StakeManagerV2 is
 
     /// @dev internal fn to mint the fees to the stader treasury
     function _mintFees(uint256 _totalPooledBnb) internal {
-        if (_totalPooledBnb <= totalDelegated) return;
-
+        // NOTE: exchange rate is always increasing
         uint256 feeInBnb = ((_totalPooledBnb - totalDelegated) * feeBps) / 10_000;
         uint256 amountToMint = convertBnbToBnbX(feeInBnb);
         BNBX.mint(staderTreasury, amountToMint);
@@ -390,7 +389,7 @@ contract StakeManagerV2 is
     function _checkIfNewExchangeRateWithinLimits(uint256 currentER) internal {
         uint256 maxAllowableDelta = maxExchangeRateSlippageBps * currentER / 10_000;
         uint256 newER = convertBnbXToBnb(1 ether);
-        if ((newER > currentER + maxAllowableDelta) || (newER < currentER - maxAllowableDelta)) {
+        if (newER > currentER + maxAllowableDelta) {
             revert ExchangeRateOutOfBounds(currentER, maxAllowableDelta, newER);
         }
         emit ExchangeRateUpdated(currentER, newER);
