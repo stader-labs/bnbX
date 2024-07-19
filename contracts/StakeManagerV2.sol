@@ -377,7 +377,7 @@ contract StakeManagerV2 is
 
     /// @dev internal fn to mint the fees to the stader treasury
     function _mintFees(uint256 _totalPooledBnb) internal {
-        if (_totalPooledBnb < totalDelegated) return;
+        if (_totalPooledBnb <= totalDelegated) return;
         uint256 feeInBnb = ((_totalPooledBnb - totalDelegated) * feeBps) / 10_000;
         uint256 amountToMint = convertBnbToBnbX(feeInBnb);
         BNBX.mint(staderTreasury, amountToMint);
