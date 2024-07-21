@@ -31,7 +31,6 @@ interface IStakeManagerV2 {
     error MaxLimitReached();
     error ExchangeRateOutOfBounds(uint256 _currentER, uint256 _maxAllowableDelta, uint256 _newER);
     error WithdrawalBelowMinimum();
-    error RedelegationFeeMismatch();
 
     function delegate(string calldata _referralId) external payable returns (uint256);
     function requestWithdraw(uint256 _amount, string calldata _referralId) external returns (uint256);
@@ -39,7 +38,7 @@ interface IStakeManagerV2 {
 
     function startBatchUndelegation(uint256 _batchSize, address _operator) external;
     function completeBatchUndelegation() external;
-    function redelegate(address _fromOperator, address _toOperator, uint256 _amount) external payable;
+    function redelegate(address _fromOperator, address _toOperator, uint256 _amount) external;
     function delegateWithoutMinting() external payable;
     function updateER() external;
     function pause() external;
