@@ -6,14 +6,15 @@ import { IStakeCredit } from "contracts/interfaces/IStakeCredit.sol";
 
 contract StakeManagerV2Delegations is StakeManagerV2Setup {
     address preferredDepositOperator;
+    uint256 minDelegateAmount;
 
     function setUp() public override {
         super.setUp();
+        minDelegateAmount = STAKE_HUB.minDelegationBNBChange();
         preferredDepositOperator = operatorRegistry.preferredDepositOperator();
     }
 
     function testFuzz_revertWhenUserAmountLessThanMinDelegation(uint256 amountInBnb) public {
-        uint256 minDelegateAmount = STAKE_HUB.minDelegationBNBChange();
         vm.assume(amountInBnb < minDelegateAmount);
 
         vm.expectRevert();
@@ -22,7 +23,6 @@ contract StakeManagerV2Delegations is StakeManagerV2Setup {
     }
 
     function testFuzz_userDeposit(uint256 amountInBnb) public {
-        uint256 minDelegateAmount = STAKE_HUB.minDelegationBNBChange();
         vm.assume(amountInBnb >= minDelegateAmount);
         vm.assume(amountInBnb < 1e35);
 
@@ -38,5 +38,31 @@ contract StakeManagerV2Delegations is StakeManagerV2Setup {
 
         uint256 validatorBalanceAfter = IStakeCredit(creditContract).getPooledBNB(address(stakeManagerV2));
         assertApproxEqAbs(validatorBalanceAfter, validatorBalanceBefore + amountInBnb, 2);
+    }
+
+    function testFuzz_redelegation(uint256 amount, uint256 redelegationAmount) public {
+        vm.assume(amount < 1e35);
+        vm.assume(amount >= minDelegateAmount);
+        vm.assume(redelegationAmount >= minDelegateAmount);
+        vm.assume(redelegationAmount <= amount);
+
+        // new validator
+        address toOperator = 0xd34403249B2d82AAdDB14e778422c966265e5Fb5;
+
+        // add a new validator
+        vm.prank(manager);
+        operatorRegistry.addOperator(toOperator);
+
+        hoax(user1, amount);
+        stakeManagerV2.delegate{ value: amount }("referral");
+
+        uint256 totalStakedBnb = stakeManagerV2.getActualStakeAcrossAllOperators();
+        vm.prank(manager);
+        stakeManagerV2.redelegate(preferredDepositOperator, toOperator, redelegationAmount);
+
+        uint256 totalStakedBnbAfter = stakeManagerV2.getActualStakeAcrossAllOperators();
+        assertApproxEqAbs(
+            totalStakedBnbAfter, totalStakedBnb - stakeManagerV2.getRedelegationFee(redelegationAmount), 100
+        );
     }
 }

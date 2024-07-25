@@ -4,6 +4,7 @@ pragma solidity 0.8.25;
 import "forge-std/Test.sol";
 
 import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import {
     TransparentUpgradeableProxy,
     ITransparentUpgradeableProxy
@@ -11,8 +12,8 @@ import {
 
 import { StakeManager } from "contracts/StakeManager.sol";
 import { BnbX } from "contracts/BnbX.sol";
-import { StakeManagerV2 } from "contracts/StakeManagerV2.sol";
-import { OperatorRegistry } from "contracts/OperatorRegistry.sol";
+import "contracts/StakeManagerV2.sol";
+import { OperatorRegistry, IOperatorRegistry } from "contracts/OperatorRegistry.sol";
 import { IStakeHub } from "contracts/interfaces/IStakeHub.sol";
 
 contract StakeManagerV2Setup is Test {
@@ -75,9 +76,15 @@ contract StakeManagerV2Setup is Test {
     }
 
     function _deployAndSetupContracts() private {
+        // stakeManagerV2 impl
+        address stakeManagerV2Impl = address(new StakeManagerV2());
+
+        // compute stakeManagerV2 proxy address
+        address stakeManagerV2Proxy = _computeAddress(stakeManagerV2Impl);
+
         // deploy operator registry
         operatorRegistry = OperatorRegistry(_createProxy(address(new OperatorRegistry())));
-        operatorRegistry.initialize(devAddr);
+        operatorRegistry.initialize(devAddr, stakeManagerV2Proxy);
 
         // grant manager and operator role for operator registry
         vm.startPrank(devAddr);
@@ -95,8 +102,9 @@ contract StakeManagerV2Setup is Test {
         vm.stopPrank();
 
         // deploy stake manager v2
-        stakeManagerV2 = StakeManagerV2(payable(_createProxy(address(new StakeManagerV2()))));
+        stakeManagerV2 = StakeManagerV2(payable(_createProxy(stakeManagerV2Impl)));
         stakeManagerV2.initialize(devAddr, address(operatorRegistry), bnbxAddr, treasury);
+        assertEq(address(stakeManagerV2), stakeManagerV2Proxy);
 
         vm.startPrank(devAddr);
         // grant manager role for stake manager v2
@@ -141,5 +149,19 @@ contract StakeManagerV2Setup is Test {
 
         vm.prank(admin);
         stakeManagerV2.unpause();
+    }
+
+    /// @dev Computes the address of a proxy for the given implementation
+    /// @param implementation the implementation to proxy
+    /// @return proxyAddr the address of the created proxy
+    function _computeAddress(address implementation) private view returns (address) {
+        bytes memory creationCode = type(TransparentUpgradeableProxy).creationCode;
+        bytes memory contractBytecode = abi.encodePacked(creationCode, abi.encode(implementation, proxyAdmin, ""));
+
+        return Create2.computeAddress(GENERIC_SALT, keccak256(contractBytecode));
+    }
+
+    function _bnbxBalance(address addr) internal view returns (uint256) {
+        return BnbX(bnbxAddr).balanceOf(addr);
     }
 }

@@ -4,7 +4,7 @@ pragma solidity 0.8.25;
 import "forge-std/Script.sol";
 
 import { TransparentUpgradeableProxy } from "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol";
-
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import { StakeManager } from "contracts/StakeManager.sol";
 import { StakeManagerV2 } from "contracts/StakeManagerV2.sol";
 import { OperatorRegistry } from "contracts/OperatorRegistry.sol";
@@ -28,11 +28,27 @@ contract Migration is Script {
         console2.log("impl address: ", impl);
     }
 
+    /// @dev Computes the address of a proxy for the given implementation
+    /// @param implementation the implementation to proxy
+    /// @return proxyAddr the address of the created proxy
+    function _computeAddress(address implementation) private view returns (address) {
+        bytes memory creationCode = type(TransparentUpgradeableProxy).creationCode;
+        bytes memory contractBytecode = abi.encodePacked(creationCode, abi.encode(implementation, proxyAdmin, ""));
+
+        return Create2.computeAddress(GENERIC_SALT, keccak256(contractBytecode));
+    }
+
     function _deployAndSetupContracts() private {
+        // stakeManagerV2 impl
+        address stakeManagerV2Impl = address(new StakeManagerV2());
+
+        // compute stakeManagerV2 proxy address
+        address stakeManagerV2Proxy = _computeAddress(stakeManagerV2Impl);
+
         // deploy operator registry
         console2.log("deploying operator registry...");
         OperatorRegistry operatorRegistry = OperatorRegistry(_createProxy(address(new OperatorRegistry())));
-        operatorRegistry.initialize(devAddr);
+        operatorRegistry.initialize(devAddr, stakeManagerV2Proxy);
 
         // grant manager and operator role for operator registry
         console2.log("granting manager and operator role for operator registry...");
@@ -49,7 +65,7 @@ contract Migration is Script {
 
         // deploy stake manager v2
         console2.log("deploying stake manager v2...");
-        StakeManagerV2 stakeManagerV2 = StakeManagerV2(payable(_createProxy(address(new StakeManagerV2()))));
+        StakeManagerV2 stakeManagerV2 = StakeManagerV2(payable(_createProxy(stakeManagerV2Impl)));
         stakeManagerV2.initialize(devAddr, address(operatorRegistry), BNBx, treasury);
 
         // grant manager role for stake manager v2

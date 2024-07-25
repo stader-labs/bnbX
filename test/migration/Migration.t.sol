@@ -4,6 +4,7 @@ pragma solidity 0.8.25;
 import "forge-std/Test.sol";
 
 import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import {
     TransparentUpgradeableProxy,
     ITransparentUpgradeableProxy
@@ -37,10 +38,26 @@ contract Migration is Test {
         proxy = address(new TransparentUpgradeableProxy{ salt: GENERIC_SALT }(impl, proxyAdmin, ""));
     }
 
+    /// @dev Computes the address of a proxy for the given implementation
+    /// @param implementation the implementation to proxy
+    /// @return proxyAddr the address of the created proxy
+    function _computeAddress(address implementation) private view returns (address) {
+        bytes memory creationCode = type(TransparentUpgradeableProxy).creationCode;
+        bytes memory contractBytecode = abi.encodePacked(creationCode, abi.encode(implementation, proxyAdmin, ""));
+
+        return Create2.computeAddress(GENERIC_SALT, keccak256(contractBytecode));
+    }
+
     function _deployAndSetupContracts() private {
+        // stakeManagerV2 impl
+        address stakeManagerV2Impl = address(new StakeManagerV2());
+
+        // compute stakeManagerV2 proxy address
+        address stakeManagerV2Proxy = _computeAddress(stakeManagerV2Impl);
+
         // deploy operator registry
         operatorRegistry = OperatorRegistry(_createProxy(address(new OperatorRegistry())));
-        operatorRegistry.initialize(devAddr);
+        operatorRegistry.initialize(devAddr, stakeManagerV2Proxy);
 
         // grant manager and operator role for operator registry
         vm.startPrank(devAddr);
@@ -56,7 +73,7 @@ contract Migration is Test {
         operatorRegistry.setPreferredDepositOperator(bscOperator);
 
         // deploy stake manager v2
-        stakeManagerV2 = StakeManagerV2(payable(_createProxy(address(new StakeManagerV2()))));
+        stakeManagerV2 = StakeManagerV2(payable(_createProxy(stakeManagerV2Impl)));
         stakeManagerV2.initialize(devAddr, address(operatorRegistry), BNBx, treasury);
 
         vm.startPrank(devAddr);
@@ -109,6 +126,32 @@ contract Migration is Test {
     }
 
     function test_migrateFunds() public {
+        address user1 = makeAddr("user1");
+        // user gets some bnbx
+        startHoax(user1, 10 ether);
+        stakeManagerV1.deposit{ value: 10 ether }();
+
+        // some user requests withdraw
+        BnbX(BNBx).approve(address(stakeManagerV1), 8 ether);
+        stakeManagerV1.requestWithdraw(8 ether);
+        vm.stopPrank();
+
+        assertEq(stakeManagerV1.getUserWithdrawalRequests(user1).length, 1); // 1 request raised
+        (bool isClaimable,) = stakeManagerV1.getUserRequestStatus(user1, 0);
+        assertFalse(isClaimable); // not claimable
+
+        // manager processes pending withdraw batch
+        vm.startPrank(manager);
+        (uint256 uuid, uint256 batchAmountInBNB) = stakeManagerV1.startUndelegation();
+        stakeManagerV1.undelegationStarted(uuid);
+        skip(7 days);
+        vm.deal(manager, batchAmountInBNB);
+        stakeManagerV1.completeUndelegation{ value: batchAmountInBNB }(uuid);
+        vm.stopPrank();
+
+        (isClaimable,) = stakeManagerV1.getUserRequestStatus(user1, 0);
+        assertTrue(isClaimable); // claimable
+
         uint256 prevManagerBal = manager.balance;
         uint256 depositsInContractV1 = stakeManagerV1.depositsInContract();
 
@@ -163,5 +206,9 @@ contract Migration is Test {
         stakeManagerV2.delegate{ value: er2 }("referral");
 
         assertApproxEqAbs(BnbX(BNBx).balanceOf(user), 1 ether, 2);
+
+        // previous user1 claims from v1
+        vm.prank(user1);
+        stakeManagerV1.claimWithdraw(0);
     }
 }
