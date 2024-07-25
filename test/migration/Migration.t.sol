@@ -126,6 +126,32 @@ contract Migration is Test {
     }
 
     function test_migrateFunds() public {
+        address user1 = makeAddr("user1");
+        // user gets some bnbx
+        startHoax(user1, 10 ether);
+        stakeManagerV1.deposit{ value: 10 ether }();
+
+        // some user requests withdraw
+        BnbX(BNBx).approve(address(stakeManagerV1), 8 ether);
+        stakeManagerV1.requestWithdraw(8 ether);
+        vm.stopPrank();
+
+        assertEq(stakeManagerV1.getUserWithdrawalRequests(user1).length, 1); // 1 request raised
+        (bool isClaimable,) = stakeManagerV1.getUserRequestStatus(user1, 0);
+        assertFalse(isClaimable); // not claimable
+
+        // manager processes pending withdraw batch
+        vm.startPrank(manager);
+        (uint256 uuid, uint256 batchAmountInBNB) = stakeManagerV1.startUndelegation();
+        stakeManagerV1.undelegationStarted(uuid);
+        skip(7 days);
+        vm.deal(manager, batchAmountInBNB);
+        stakeManagerV1.completeUndelegation{ value: batchAmountInBNB }(uuid);
+        vm.stopPrank();
+
+        (isClaimable,) = stakeManagerV1.getUserRequestStatus(user1, 0);
+        assertTrue(isClaimable); // claimable
+
         uint256 prevManagerBal = manager.balance;
         uint256 depositsInContractV1 = stakeManagerV1.depositsInContract();
 
@@ -180,5 +206,9 @@ contract Migration is Test {
         stakeManagerV2.delegate{ value: er2 }("referral");
 
         assertApproxEqAbs(BnbX(BNBx).balanceOf(user), 1 ether, 2);
+
+        // previous user1 claims from v1
+        vm.prank(user1);
+        stakeManagerV1.claimWithdraw(0);
     }
 }
