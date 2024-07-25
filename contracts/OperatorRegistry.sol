@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
 import "./interfaces/IOperatorRegistry.sol";
 import "./interfaces/IStakeHub.sol";
 import "./interfaces/IStakeCredit.sol";
+import "./ProtocolConstants.sol";
 
 /// @title OperatorRegistry
 /// @notice OperatorRegistry is the main contract that manages operators.
@@ -23,11 +24,12 @@ contract OperatorRegistry is
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
-    IStakeHub public constant STAKE_HUB = IStakeHub(0x0000000000000000000000000000000000002002);
+    IStakeHub public constant STAKE_HUB = IStakeHub(ProtocolConstants.STAKE_HUB_ADDR);
     address public override preferredDepositOperator;
     address public override preferredWithdrawalOperator;
     uint256 public negligibleAmount;
 
+    address public stakeManager;
     EnumerableSet.AddressSet private operatorSet;
 
     // @custom:oz-upgrades-unsafe-allow constructor
@@ -36,13 +38,15 @@ contract OperatorRegistry is
     }
 
     /// @notice Initialize the OperatorRegistry contract.
-    function initialize(address _admin) external initializer {
+    function initialize(address _admin, address _stakeManager) external initializer {
         if (_admin == address(0)) revert ZeroAddress();
+        if (_stakeManager == address(0)) revert ZeroAddress();
 
         __AccessControl_init();
         __Pausable_init();
         __ReentrancyGuard_init();
 
+        stakeManager = _stakeManager;
         negligibleAmount = 1e10;
 
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
@@ -78,7 +82,6 @@ contract OperatorRegistry is
         whenOperatorDoesExist(_operator)
         onlyRole(MANAGER_ROLE)
     {
-        if (_operator == address(0)) revert ZeroAddress();
         if (preferredDepositOperator == _operator) {
             revert OperatorIsPreferredDeposit();
         }
@@ -86,9 +89,8 @@ contract OperatorRegistry is
             revert OperatorIsPreferredWithdrawal();
         }
 
-        if (
-            IStakeCredit(STAKE_HUB.getValidatorCreditContract(_operator)).getPooledBNB(address(this)) > negligibleAmount
-        ) {
+        if (IStakeCredit(STAKE_HUB.getValidatorCreditContract(_operator)).getPooledBNB(stakeManager) > negligibleAmount)
+        {
             revert DelegationExists();
         }
 
@@ -102,13 +104,11 @@ contract OperatorRegistry is
     function setPreferredDepositOperator(address _operator)
         external
         override
-        whenNotPaused
         nonReentrant
+        whenNotPaused
         whenOperatorDoesExist(_operator)
         onlyRole(OPERATOR_ROLE)
     {
-        if (_operator == address(0)) revert ZeroAddress();
-
         preferredDepositOperator = _operator;
 
         emit SetPreferredDepositOperator(preferredDepositOperator);
@@ -119,13 +119,11 @@ contract OperatorRegistry is
     function setPreferredWithdrawalOperator(address _operator)
         external
         override
-        whenNotPaused
         nonReentrant
+        whenNotPaused
         whenOperatorDoesExist(_operator)
         onlyRole(OPERATOR_ROLE)
     {
-        if (_operator == address(0)) revert ZeroAddress();
-
         preferredWithdrawalOperator = _operator;
 
         emit SetPreferredWithdrawalOperator(preferredWithdrawalOperator);
@@ -134,7 +132,7 @@ contract OperatorRegistry is
     /// @notice Allows to set the negligible amount.
     /// @param _negligibleAmount The negligible amount.
     function setNegligibleAmount(uint256 _negligibleAmount) external nonReentrant onlyRole(MANAGER_ROLE) {
-        if (_negligibleAmount > 1e10) revert NegligibleAmountTooHigh();
+        if (_negligibleAmount > ProtocolConstants.MAX_NEGLIGIBLE_AMOUNT) revert NegligibleAmountTooHigh();
         negligibleAmount = _negligibleAmount;
     }
 

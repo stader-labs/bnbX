@@ -4,6 +4,7 @@ pragma solidity 0.8.25;
 import "forge-std/Test.sol";
 
 import { ProxyAdmin } from "@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol";
+import { Create2 } from "@openzeppelin/contracts/utils/Create2.sol";
 import {
     TransparentUpgradeableProxy,
     ITransparentUpgradeableProxy
@@ -37,10 +38,26 @@ contract Migration is Test {
         proxy = address(new TransparentUpgradeableProxy{ salt: GENERIC_SALT }(impl, proxyAdmin, ""));
     }
 
+    /// @dev Computes the address of a proxy for the given implementation
+    /// @param implementation the implementation to proxy
+    /// @return proxyAddr the address of the created proxy
+    function _computeAddress(address implementation) private view returns (address) {
+        bytes memory creationCode = type(TransparentUpgradeableProxy).creationCode;
+        bytes memory contractBytecode = abi.encodePacked(creationCode, abi.encode(implementation, proxyAdmin, ""));
+
+        return Create2.computeAddress(GENERIC_SALT, keccak256(contractBytecode));
+    }
+
     function _deployAndSetupContracts() private {
+        // stakeManagerV2 impl
+        address stakeManagerV2Impl = address(new StakeManagerV2());
+
+        // compute stakeManagerV2 proxy address
+        address stakeManagerV2Proxy = _computeAddress(stakeManagerV2Impl);
+
         // deploy operator registry
         operatorRegistry = OperatorRegistry(_createProxy(address(new OperatorRegistry())));
-        operatorRegistry.initialize(devAddr);
+        operatorRegistry.initialize(devAddr, stakeManagerV2Proxy);
 
         // grant manager and operator role for operator registry
         vm.startPrank(devAddr);
@@ -56,7 +73,7 @@ contract Migration is Test {
         operatorRegistry.setPreferredDepositOperator(bscOperator);
 
         // deploy stake manager v2
-        stakeManagerV2 = StakeManagerV2(payable(_createProxy(address(new StakeManagerV2()))));
+        stakeManagerV2 = StakeManagerV2(payable(_createProxy(stakeManagerV2Impl)));
         stakeManagerV2.initialize(devAddr, address(operatorRegistry), BNBx, treasury);
 
         vm.startPrank(devAddr);

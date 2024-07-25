@@ -11,6 +11,7 @@ import "./interfaces/IBnbX.sol";
 import "./interfaces/IOperatorRegistry.sol";
 import "./interfaces/IStakeManagerV2.sol";
 import "./interfaces/IStakeCredit.sol";
+import "./ProtocolConstants.sol";
 
 /// @title StakeManagerV2
 /// @notice This contract manages staking, withdrawal, and re-delegation of BNB through a stake hub and operator registry.
@@ -25,7 +26,7 @@ contract StakeManagerV2 is
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
 
-    IStakeHub public constant STAKE_HUB = IStakeHub(0x0000000000000000000000000000000000002002);
+    IStakeHub public constant STAKE_HUB = IStakeHub(ProtocolConstants.STAKE_HUB_ADDR);
     IOperatorRegistry public OPERATOR_REGISTRY;
     IBnbX public BNBX;
 
@@ -94,8 +95,8 @@ contract StakeManagerV2 is
         external
         payable
         override
-        whenNotPaused
         nonReentrant
+        whenNotPaused
         returns (uint256)
     {
         uint256 amountToMint = convertBnbToBnbX(msg.value);
@@ -115,8 +116,8 @@ contract StakeManagerV2 is
     )
         external
         override
-        whenNotPaused
         nonReentrant
+        whenNotPaused
         returns (uint256)
     {
         if (_amount < minWithdrawableBnbx) revert WithdrawalBelowMinimum();
@@ -144,7 +145,7 @@ contract StakeManagerV2 is
     /// @notice Claim the BNB from a withdrawal request.
     /// @param _idx user withdraw request array index
     /// @return The amount of BNB claimed.
-    function claimWithdrawal(uint256 _idx) external override whenNotPaused nonReentrant returns (uint256) {
+    function claimWithdrawal(uint256 _idx) external override nonReentrant whenNotPaused returns (uint256) {
         WithdrawalRequest storage request = _extractRequest(msg.sender, _idx);
         if (request.claimed) revert AlreadyClaimed();
         if (!request.processed) revert NotProcessed();
@@ -212,7 +213,7 @@ contract StakeManagerV2 is
     }
 
     /// @notice Complete the undelegation process.
-    function completeBatchUndelegation() external override whenNotPaused nonReentrant {
+    function completeBatchUndelegation() external override nonReentrant whenNotPaused {
         BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnbondingBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 
@@ -301,7 +302,7 @@ contract StakeManagerV2 is
     /// @param _staderTreasury The new address of the Stader Treasury.
     /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
     function setStaderTreasury(address _staderTreasury) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_staderTreasury != address(0)) revert ZeroAddress();
+        if (_staderTreasury == address(0)) revert ZeroAddress();
         staderTreasury = _staderTreasury;
         emit SetStaderTreasury(_staderTreasury);
     }
@@ -310,7 +311,7 @@ contract StakeManagerV2 is
     /// @dev updates exchange rate before setting the new feeBps
     /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
     function setFeeBps(uint256 _feeBps) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_feeBps > 5000) revert MaxLimitReached();
+        if (_feeBps > ProtocolConstants.MAX_ALLOWED_FEE_BPS) revert MaxLimitReached();
         updateER();
         feeBps = _feeBps;
         emit SetFeeBps(_feeBps);
@@ -375,14 +376,14 @@ contract StakeManagerV2 is
     /// @dev internal fn to mint the fees to the stader treasury
     function _mintFees(uint256 _totalPooledBnb) internal {
         if (_totalPooledBnb <= totalDelegated) return;
-        uint256 feeInBnb = ((_totalPooledBnb - totalDelegated) * feeBps) / 10_000;
+        uint256 feeInBnb = ((_totalPooledBnb - totalDelegated) * feeBps) / ProtocolConstants.BPS_DENOM;
         uint256 amountToMint = convertBnbToBnbX(feeInBnb);
         BNBX.mint(staderTreasury, amountToMint);
     }
 
     /// @dev internal fn to check if new exchange rate is within limits
     function _checkIfNewExchangeRateWithinLimits(uint256 currentER) internal {
-        uint256 maxAllowableDelta = maxExchangeRateSlippageBps * currentER / 10_000;
+        uint256 maxAllowableDelta = maxExchangeRateSlippageBps * currentER / ProtocolConstants.BPS_DENOM;
         uint256 newER = convertBnbXToBnb(1 ether);
         if (newER > currentER + maxAllowableDelta) {
             revert ExchangeRateOutOfBounds(currentER, maxAllowableDelta, newER);
@@ -484,8 +485,8 @@ contract StakeManagerV2 is
     /// @return The total stake in BNB.
     function getActualStakeAcrossAllOperators() public view returns (uint256) {
         uint256 totalStake;
-        uint256 operatorsLength = OPERATOR_REGISTRY.getOperatorsLength();
         address[] memory operators = OPERATOR_REGISTRY.getOperators();
+        uint256 operatorsLength = operators.length;
 
         for (uint256 i; i < operatorsLength;) {
             address creditContract = STAKE_HUB.getValidatorCreditContract(operators[i]);
