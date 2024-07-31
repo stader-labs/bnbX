@@ -20,6 +20,17 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
         vm.stopPrank();
     }
 
+    function test_getBnbxToBurnForBatchSize() public {
+        _batchUndelegateSetup(3 ether, 5 ether);
+
+        assertEq(stakeManagerV2.getBnbxToBurnForBatchSize(3), 11 ether);
+        assertEq(stakeManagerV2.getBnbxToBurnForBatchSize(1), 3 ether);
+        assertEq(stakeManagerV2.getBnbxToBurnForBatchSize(2), 8 ether);
+        assertEq(stakeManagerV2.getBnbxToBurnForBatchSize(6), 24 ether);
+        assertEq(stakeManagerV2.getBnbxToBurnForBatchSize(7), 24 ether);
+        assertEq(stakeManagerV2.getBnbxToBurnForBatchSize(0), 0);
+    }
+
     function test_revertWhenWithdrawAmountIsLow(uint256 bnbxAmount) public {
         vm.assume(bnbxAmount < stakeManagerV2.minWithdrawableBnbx());
 
@@ -115,10 +126,15 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
 
         assertEq(stakeManagerV2.getUserRequestIds(user1).length, 3);
         assertEq(stakeManagerV2.getUserRequestIds(user2).length, 3);
+        assertEq(stakeManagerV2.getUnprocessedWithdrawalRequestCount(), 6);
 
         vm.startPrank(staderOperator);
         stakeManagerV2.startBatchUndelegation(2, address(0));
+        assertEq(stakeManagerV2.getUnprocessedWithdrawalRequestCount(), 4);
+
         stakeManagerV2.startBatchUndelegation(6, address(0));
+        assertEq(stakeManagerV2.getUnprocessedWithdrawalRequestCount(), 0);
+
         vm.stopPrank();
 
         assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), 2);

@@ -437,7 +437,7 @@ contract StakeManagerV2 is
     }
 
     /// @notice get active withdrawal requests count
-    function getActiveWithdrawalRequestCount() external view returns (uint256) {
+    function getUnprocessedWithdrawalRequestCount() external view returns (uint256) {
         return withdrawalRequests.length - firstUnprocessedUserIndex;
     }
 
