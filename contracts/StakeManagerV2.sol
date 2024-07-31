@@ -436,6 +436,11 @@ contract StakeManagerV2 is
         return withdrawalRequests[_requestId];
     }
 
+    /// @notice get active withdrawal requests count
+    function getActiveWithdrawalRequestCount() external view returns (uint256) {
+        return withdrawalRequests.length - firstUnprocessedUserIndex;
+    }
+
     /// @notice total number of user withdraw requests
     function getWithdrawalRequestCount() external view returns (uint256) {
         return withdrawalRequests.length;
@@ -496,5 +501,20 @@ contract StakeManagerV2 is
             }
         }
         return totalStake;
+    }
+
+    /// @notice Auxillary function to calculate amount of BNBx to be burn given batch size
+    /// @param _batchSize - number of requests to process in a batch
+    /// @return bnbxToBurn - amount of BNBx to be burn given the batch size
+    function getBnbxToBurnForBatchSize(uint256 _batchSize) external view returns (uint256 bnbxToBurn) {
+        uint256 processedCount;
+        uint256 tempFirstUnprocessedUserIndex = firstUnprocessedUserIndex;
+        while ((processedCount < _batchSize) && (tempFirstUnprocessedUserIndex < withdrawalRequests.length)) {
+            bnbxToBurn += withdrawalRequests[tempFirstUnprocessedUserIndex].amountInBnbX;
+            unchecked {
+                ++processedCount;
+                ++tempFirstUnprocessedUserIndex;
+            }
+        }
     }
 }
