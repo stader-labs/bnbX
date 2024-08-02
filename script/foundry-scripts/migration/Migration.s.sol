@@ -22,6 +22,9 @@ contract Migration is Script {
     // address public STAKE_HUB = 0x0000000000000000000000000000000000002002;
     address private BNBx = 0x1bdd3Cf7F79cfB8EdbB955f20ad99211551BA275;
 
+    StakeManagerV2 public stakeManagerV2;
+    OperatorRegistry public operatorRegistry;
+
     function _createProxy(address impl) private returns (address proxy) {
         proxy = address(new TransparentUpgradeableProxy{ salt: GENERIC_SALT }(impl, proxyAdmin, ""));
         console2.log("proxy address: ", proxy);
@@ -39,16 +42,10 @@ contract Migration is Script {
     }
 
     function _deployAndSetupContracts() private {
-        // stakeManagerV2 impl
-        address stakeManagerV2Impl = address(new StakeManagerV2());
-
-        // compute stakeManagerV2 proxy address
-        address stakeManagerV2Proxy = _computeAddress(stakeManagerV2Impl);
-
         // deploy operator registry
         console2.log("deploying operator registry...");
-        OperatorRegistry operatorRegistry = OperatorRegistry(_createProxy(address(new OperatorRegistry())));
-        operatorRegistry.initialize(devAddr, stakeManagerV2Proxy);
+        operatorRegistry = OperatorRegistry(_createProxy(address(new OperatorRegistry())));
+        operatorRegistry.initialize(devAddr);
 
         // grant manager and operator role for operator registry
         console2.log("granting manager and operator role for operator registry...");
@@ -65,8 +62,12 @@ contract Migration is Script {
 
         // deploy stake manager v2
         console2.log("deploying stake manager v2...");
-        StakeManagerV2 stakeManagerV2 = StakeManagerV2(payable(_createProxy(stakeManagerV2Impl)));
+        // stakeManagerV2 impl
+        address stakeManagerV2Impl = address(new StakeManagerV2());
+
+        stakeManagerV2 = StakeManagerV2(payable(_createProxy(stakeManagerV2Impl)));
         stakeManagerV2.initialize(devAddr, address(operatorRegistry), BNBx, treasury);
+        operatorRegistry.initialize2(address(stakeManagerV2));
 
         // grant manager role for stake manager v2
         console2.log("granting manager and operator role for stake manager v2...");
@@ -89,18 +90,18 @@ contract Migration is Script {
     }
 
     function run() public {
-        proxyAdmin = 0xF90e293D34a42CB592Be6BE6CA19A9963655673C; // TODO: check if needs to be changed ?
-        admin = 0xb866E12b414d9f975034C4BA51498E6E64559a4c; // external multisig , TODO: check if needs to be changed ?
-        manager = 0x79A2Ae748AC8bE4118B7a8096681B30310c3adBE; // internal multisig, TODO: check if needs to be changed ?
-        staderOperator = makeAddr("stader-operator"); // TODO
-        treasury = makeAddr("treasury"); // TODO
+        proxyAdmin = 0xF90e293D34a42CB592Be6BE6CA19A9963655673C;
+        admin = 0x79A2Ae748AC8bE4118B7a8096681B30310c3adBE; // internal multisig
+        manager = 0x79A2Ae748AC8bE4118B7a8096681B30310c3adBE; // internal multisig
+        staderOperator = 0xDfB508E262B683EC52D533B80242Ae74087BC7EB; // previous claim wallet
+        treasury = 0x01422247a1d15BB4FcF91F5A077Cf25BA6460130; // treasury
         devAddr = msg.sender;
 
         vm.startBroadcast(); // the executer will become msg.sender
         console.log("deploying contracts by: ", msg.sender);
         _deployAndSetupContracts();
+        verify();
         vm.stopBroadcast();
-
         // TODO: assert manually
         // // assert only admin has DEFAULT_ADMIN_ROLE in both the contracts
         // assertTrue(stakeManagerV2.hasRole(stakeManagerV2.DEFAULT_ADMIN_ROLE(), admin));
@@ -108,5 +109,40 @@ contract Migration is Script {
 
         // assertFalse(stakeManagerV2.hasRole(stakeManagerV2.DEFAULT_ADMIN_ROLE(), devAddr));
         // assertFalse(operatorRegistry.hasRole(operatorRegistry.DEFAULT_ADMIN_ROLE(), devAddr));
+    }
+
+    function verify() public view {
+        require(
+            stakeManagerV2.hasRole(stakeManagerV2.DEFAULT_ADMIN_ROLE(), admin),
+            "stakeManagerV2 has no DEFAULT_ADMIN_ROLE"
+        );
+        require(stakeManagerV2.hasRole(stakeManagerV2.MANAGER_ROLE(), manager), "stakeManagerV2 has no MANAGER_ROLE");
+        require(
+            stakeManagerV2.hasRole(stakeManagerV2.OPERATOR_ROLE(), staderOperator),
+            "stakeManagerV2 has no OPERATOR_ROLE"
+        );
+
+        require(
+            operatorRegistry.hasRole(operatorRegistry.DEFAULT_ADMIN_ROLE(), admin),
+            "operatorRegistry has no DEFAULT_ADMIN_ROLE"
+        );
+        require(
+            operatorRegistry.hasRole(operatorRegistry.MANAGER_ROLE(), manager), "operatorRegistry has no MANAGER_ROLE"
+        );
+        require(
+            operatorRegistry.hasRole(operatorRegistry.OPERATOR_ROLE(), staderOperator),
+            "operatorRegistry has no OPERATOR_ROLE"
+        );
+
+        require(
+            !stakeManagerV2.hasRole(stakeManagerV2.DEFAULT_ADMIN_ROLE(), devAddr),
+            "stakeManagerV2 has DEFAULT_ADMIN_ROLE from devAddr"
+        );
+        require(
+            !operatorRegistry.hasRole(operatorRegistry.DEFAULT_ADMIN_ROLE(), devAddr),
+            "operatorRegistry has DEFAULT_ADMIN_ROLE from devAddr"
+        );
+
+        require(operatorRegistry.stakeManager() == address(stakeManagerV2), "operatorRegistry has wrong stakeManager");
     }
 }

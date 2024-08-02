@@ -79,12 +79,9 @@ contract StakeManagerV2Setup is Test {
         // stakeManagerV2 impl
         address stakeManagerV2Impl = address(new StakeManagerV2());
 
-        // compute stakeManagerV2 proxy address
-        address stakeManagerV2Proxy = _computeAddress(stakeManagerV2Impl);
-
         // deploy operator registry
         operatorRegistry = OperatorRegistry(_createProxy(address(new OperatorRegistry())));
-        operatorRegistry.initialize(devAddr, stakeManagerV2Proxy);
+        operatorRegistry.initialize(devAddr);
 
         // grant manager and operator role for operator registry
         vm.startPrank(devAddr);
@@ -104,7 +101,8 @@ contract StakeManagerV2Setup is Test {
         // deploy stake manager v2
         stakeManagerV2 = StakeManagerV2(payable(_createProxy(stakeManagerV2Impl)));
         stakeManagerV2.initialize(devAddr, address(operatorRegistry), bnbxAddr, treasury);
-        assertEq(address(stakeManagerV2), stakeManagerV2Proxy);
+        operatorRegistry.initialize2(address(stakeManagerV2));
+        assertEq(address(stakeManagerV2), operatorRegistry.stakeManager());
 
         vm.startPrank(devAddr);
         // grant manager role for stake manager v2

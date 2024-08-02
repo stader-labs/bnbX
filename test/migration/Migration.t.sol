@@ -49,15 +49,9 @@ contract Migration is Test {
     }
 
     function _deployAndSetupContracts() private {
-        // stakeManagerV2 impl
-        address stakeManagerV2Impl = address(new StakeManagerV2());
-
-        // compute stakeManagerV2 proxy address
-        address stakeManagerV2Proxy = _computeAddress(stakeManagerV2Impl);
-
         // deploy operator registry
         operatorRegistry = OperatorRegistry(_createProxy(address(new OperatorRegistry())));
-        operatorRegistry.initialize(devAddr, stakeManagerV2Proxy);
+        operatorRegistry.initialize(devAddr);
 
         // grant manager and operator role for operator registry
         vm.startPrank(devAddr);
@@ -73,8 +67,13 @@ contract Migration is Test {
         operatorRegistry.setPreferredDepositOperator(bscOperator);
 
         // deploy stake manager v2
+        // stakeManagerV2 impl
+        address stakeManagerV2Impl = address(new StakeManagerV2());
         stakeManagerV2 = StakeManagerV2(payable(_createProxy(stakeManagerV2Impl)));
         stakeManagerV2.initialize(devAddr, address(operatorRegistry), BNBx, treasury);
+        operatorRegistry.initialize2(address(stakeManagerV2));
+
+        assertEq(operatorRegistry.stakeManager(), address(stakeManagerV2));
 
         vm.startPrank(devAddr);
         // grant manager role for stake manager v2

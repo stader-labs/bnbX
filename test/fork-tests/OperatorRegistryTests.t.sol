@@ -171,7 +171,7 @@ contract OperatorRegistryTests is StakeManagerV2Setup {
         uint256 negligibleAmount = operatorRegistry.negligibleAmount();
 
         vm.prank(manager);
-        stakeManagerV2.redelegate(newOperator, oldOperator, bnbStakedAtOperator - negligibleAmount);
+        stakeManagerV2.redelegate(newOperator, oldOperator, bnbStakedAtOperator - negligibleAmount + 1);
 
         // check and remove operator now
         bnbStakedAtOperator =
