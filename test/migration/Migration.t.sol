@@ -124,7 +124,7 @@ contract Migration is Test {
         // _deployAndSetupContracts();
     }
 
-    function test_migrateFunds() public {
+    function legacy_test_migrateFunds() public {
         // add preferred operator
         address bscOperator = 0x343dA7Ff0446247ca47AA41e2A25c5Bbb230ED0A;
         vm.startPrank(manager);

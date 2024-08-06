@@ -42,10 +42,7 @@ contract StakeManagerV2Setup is Test {
 
         _initialiseAddresses();
 
-        // TODO: remove below 3 lines, after successful migration
-        _deployAndSetupContracts();
-        _upgradeAndSetupContracts();
-        _migrateFunds();
+        _clearCurrentPendingTransactions();
     }
 
     // ----------------------------------HELPERS-------------------------------- //
@@ -54,18 +51,35 @@ contract StakeManagerV2Setup is Test {
         // TODO: update below addresses with correct addresses once on mainnet
         proxyAdmin = 0xF90e293D34a42CB592Be6BE6CA19A9963655673C;
         timelock = 0xD990A252E7e36700d47520e46cD2B3E446836488;
-        admin = 0xb866E12b414d9f975034C4BA51498E6E64559a4c; // external multisig
+        admin = 0x79A2Ae748AC8bE4118B7a8096681B30310c3adBE; // internal multisig
         manager = 0x79A2Ae748AC8bE4118B7a8096681B30310c3adBE; // internal multisig
-        staderOperator = makeAddr("stader-operator");
-        treasury = makeAddr("treasury");
+        staderOperator = 0xDfB508E262B683EC52D533B80242Ae74087BC7EB;
+        treasury = 0x01422247a1d15BB4FcF91F5A077Cf25BA6460130;
 
         devAddr = address(this); // may change it to your own address
         stakeManagerV1 = StakeManager(payable(0x7276241a669489E4BBB76f63d2A43Bfe63080F2F));
-        // stakeManagerV2 = StakeManagerV2(0x...);
-        // operatorRegistry = OperatorRegistry(0x...);
+        stakeManagerV2 = StakeManagerV2(payable(0x3b961e83400D51e6E1AF5c450d3C7d7b80588d28));
+        operatorRegistry = OperatorRegistry(0x9C1759359Aa7D32911c5bAD613E836aEd7c621a8);
 
         user1 = makeAddr("user1");
         user2 = makeAddr("user2");
+    }
+
+    function _clearCurrentPendingTransactions() private {
+        // clear current withdrawals from preferred current withdrawal operator
+        address oldWithdrawOperator = operatorRegistry.preferredWithdrawalOperator();
+        uint256 numWithdrawRequests = stakeManagerV2.getUnprocessedWithdrawalRequestCount();
+        vm.prank(staderOperator);
+        stakeManagerV2.startBatchUndelegation(numWithdrawRequests, oldWithdrawOperator);
+
+        skip(8 days);
+
+        uint256 numUnbondingBatches =
+            stakeManagerV2.getBatchWithdrawalRequestCount() - stakeManagerV2.firstUnbondingBatchIndex();
+        while (numUnbondingBatches > 0) {
+            stakeManagerV2.completeBatchUndelegation();
+            numUnbondingBatches--;
+        }
     }
 
     function _upgradeAndSetupContracts() private {

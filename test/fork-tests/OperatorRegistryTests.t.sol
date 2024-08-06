@@ -29,10 +29,9 @@ contract OperatorRegistryTests is StakeManagerV2Setup {
     }
 
     function test_setInvalidOperatorAsPreferred() public {
-        assertEq(operatorRegistry.getOperatorsLength(), 1);
-
         // below operator is not yet added
         address operator2 = 0xd34403249B2d82AAdDB14e778422c966265e5Fb5;
+        assertFalse(operatorRegistry.operatorExists(operator2));
 
         vm.expectRevert(IOperatorRegistry.OperatorNotExisted.selector);
         vm.prank(manager);
@@ -78,10 +77,11 @@ contract OperatorRegistryTests is StakeManagerV2Setup {
     }
 
     function test_removeOperatorWhenSomeDustRemains() public {
-        address oldOperator = operatorRegistry.preferredDepositOperator();
+        address oldWithdrawOperator = operatorRegistry.preferredWithdrawalOperator();
 
         // new validator
         address newOperator = 0xd34403249B2d82AAdDB14e778422c966265e5Fb5;
+        assertFalse(operatorRegistry.operatorExists(newOperator));
 
         // add a new validator
         vm.prank(manager);
@@ -98,8 +98,8 @@ contract OperatorRegistryTests is StakeManagerV2Setup {
 
         // set other operator as preferred
         vm.startPrank(staderOperator);
-        operatorRegistry.setPreferredDepositOperator(oldOperator);
-        operatorRegistry.setPreferredWithdrawalOperator(oldOperator);
+        operatorRegistry.setPreferredDepositOperator(oldWithdrawOperator);
+        operatorRegistry.setPreferredWithdrawalOperator(oldWithdrawOperator);
         vm.stopPrank();
 
         uint256 bnbStakedAtOperator =
@@ -203,7 +203,7 @@ contract OperatorRegistryTests is StakeManagerV2Setup {
         assertTrue(operatorRegistry.paused());
 
         vm.expectRevert();
-        vm.prank(manager);
+        vm.prank(staderOperator);
         operatorRegistry.unpause();
 
         vm.prank(admin);
