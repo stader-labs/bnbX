@@ -38,18 +38,22 @@ contract OperatorRegistry is
     }
 
     /// @notice Initialize the OperatorRegistry contract.
-    function initialize(address _admin, address _stakeManager) external initializer {
+    function initialize(address _admin) external initializer {
         if (_admin == address(0)) revert ZeroAddress();
-        if (_stakeManager == address(0)) revert ZeroAddress();
 
         __AccessControl_init();
         __Pausable_init();
         __ReentrancyGuard_init();
 
-        stakeManager = _stakeManager;
         negligibleAmount = 1e10;
 
         _setupRole(DEFAULT_ADMIN_ROLE, _admin);
+    }
+
+    /// @notice initialize stakeManager
+    function initialize2(address _stakeManager) external reinitializer(2) {
+        if (_stakeManager == address(0)) revert ZeroAddress();
+        stakeManager = _stakeManager;
     }
 
     /// @notice Allows an operator that was already staked on the BNB stake manager

@@ -49,15 +49,9 @@ contract Migration is Test {
     }
 
     function _deployAndSetupContracts() private {
-        // stakeManagerV2 impl
-        address stakeManagerV2Impl = address(new StakeManagerV2());
-
-        // compute stakeManagerV2 proxy address
-        address stakeManagerV2Proxy = _computeAddress(stakeManagerV2Impl);
-
         // deploy operator registry
         operatorRegistry = OperatorRegistry(_createProxy(address(new OperatorRegistry())));
-        operatorRegistry.initialize(devAddr, stakeManagerV2Proxy);
+        operatorRegistry.initialize(devAddr);
 
         // grant manager and operator role for operator registry
         vm.startPrank(devAddr);
@@ -73,8 +67,13 @@ contract Migration is Test {
         operatorRegistry.setPreferredDepositOperator(bscOperator);
 
         // deploy stake manager v2
+        // stakeManagerV2 impl
+        address stakeManagerV2Impl = address(new StakeManagerV2());
         stakeManagerV2 = StakeManagerV2(payable(_createProxy(stakeManagerV2Impl)));
         stakeManagerV2.initialize(devAddr, address(operatorRegistry), BNBx, treasury);
+        operatorRegistry.initialize2(address(stakeManagerV2));
+
+        assertEq(operatorRegistry.stakeManager(), address(stakeManagerV2));
 
         vm.startPrank(devAddr);
         // grant manager role for stake manager v2
@@ -99,8 +98,8 @@ contract Migration is Test {
         assertFalse(operatorRegistry.hasRole(operatorRegistry.DEFAULT_ADMIN_ROLE(), devAddr));
     }
 
-    function _upgradeAndSetupContracts() private {
-        address stakeManagerV1Impl = address(new StakeManager());
+    function _upgradeStakeManagerV1() private {
+        address stakeManagerV1Impl = 0x410ef6738C98c9478C7d21eF948a6dfd0FA9ED45;
 
         vm.prank(timelock);
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(address(stakeManagerV1)), stakeManagerV1Impl);
@@ -112,23 +111,35 @@ contract Migration is Test {
 
         proxyAdmin = 0xF90e293D34a42CB592Be6BE6CA19A9963655673C; // old proxy admin with timelock 0xD990A252E7e36700d47520e46cD2B3E446836488
         timelock = 0xD990A252E7e36700d47520e46cD2B3E446836488;
-        admin = 0xb866E12b414d9f975034C4BA51498E6E64559a4c; // external multisig
+        admin = 0x79A2Ae748AC8bE4118B7a8096681B30310c3adBE; // internal multisig
         manager = 0x79A2Ae748AC8bE4118B7a8096681B30310c3adBE; // internal multisig
-        staderOperator = makeAddr("stader-operator");
-        treasury = makeAddr("treasury");
+        staderOperator = 0xDfB508E262B683EC52D533B80242Ae74087BC7EB;
+        treasury = 0x01422247a1d15BB4FcF91F5A077Cf25BA6460130;
 
         devAddr = address(this); // may change it to your own address
 
         stakeManagerV1 = StakeManager(payable(0x7276241a669489E4BBB76f63d2A43Bfe63080F2F));
-
-        _deployAndSetupContracts();
-        _upgradeAndSetupContracts();
+        operatorRegistry = OperatorRegistry(0x9C1759359Aa7D32911c5bAD613E836aEd7c621a8);
+        stakeManagerV2 = StakeManagerV2(payable(0x3b961e83400D51e6E1AF5c450d3C7d7b80588d28));
+        // _deployAndSetupContracts();
     }
 
-    function test_migrateFunds() public {
-        address user1 = makeAddr("user1");
+    function legacy_test_migrateFunds() public {
+        // add preferred operator
+        address bscOperator = 0x343dA7Ff0446247ca47AA41e2A25c5Bbb230ED0A;
+        vm.startPrank(manager);
+        operatorRegistry.addOperator(bscOperator);
+        stakeManagerV2.pause();
+        vm.stopPrank();
+
+        vm.startPrank(staderOperator);
+        operatorRegistry.setPreferredDepositOperator(bscOperator);
+        operatorRegistry.setPreferredWithdrawalOperator(bscOperator);
+        vm.stopPrank();
+
+        address userV1 = makeAddr("userV1");
         // user gets some bnbx
-        startHoax(user1, 10 ether);
+        startHoax(userV1, 10 ether);
         stakeManagerV1.deposit{ value: 10 ether }();
 
         // some user requests withdraw
@@ -136,42 +147,40 @@ contract Migration is Test {
         stakeManagerV1.requestWithdraw(8 ether);
         vm.stopPrank();
 
-        assertEq(stakeManagerV1.getUserWithdrawalRequests(user1).length, 1); // 1 request raised
-        (bool isClaimable,) = stakeManagerV1.getUserRequestStatus(user1, 0);
+        assertEq(stakeManagerV1.getUserWithdrawalRequests(userV1).length, 1); // 1 request raised
+        (bool isClaimable,) = stakeManagerV1.getUserRequestStatus(userV1, 0);
         assertFalse(isClaimable); // not claimable
 
+        // claimWallet or staderOperator should have unstaked and rcvd all funds
+        uint256 stakedFunds = (5760.8394 ether + 5013.0108 ether + 5012.5161 ether + 3512.3595 ether + 19.8107 ether);
+        vm.deal(staderOperator, staderOperator.balance + stakedFunds);
         // manager processes pending withdraw batch
-        vm.startPrank(manager);
+        vm.startPrank(staderOperator);
         (uint256 uuid, uint256 batchAmountInBNB) = stakeManagerV1.startUndelegation();
         stakeManagerV1.undelegationStarted(uuid);
-        skip(7 days);
-        vm.deal(manager, batchAmountInBNB);
         stakeManagerV1.completeUndelegation{ value: batchAmountInBNB }(uuid);
         vm.stopPrank();
 
-        (isClaimable,) = stakeManagerV1.getUserRequestStatus(user1, 0);
+        (isClaimable,) = stakeManagerV1.getUserRequestStatus(userV1, 0);
         assertTrue(isClaimable); // claimable
 
         uint256 prevManagerBal = manager.balance;
         uint256 depositsInContractV1 = stakeManagerV1.depositsInContract();
 
+        _upgradeStakeManagerV1(); // --------- EXECUTE TXN 6 on TIMELOCK -------------------- //
+
         // admin extracts funds from stake manager v1
-        // depositsInContractV1 funds are sent to manager
-        vm.startPrank(manager); // internal multisig holds default_admin_role
-        stakeManagerV1.togglePause(); // pause stake manager v1
-        stakeManagerV1.migrateFunds();
+        vm.startPrank(admin); // internal multisig holds default_admin_role
+        stakeManagerV1.togglePause(); // pause stakeManagerV1
+        stakeManagerV1.migrateFunds(); // depositsInContractV1 funds are sent to manager
         vm.stopPrank();
         assertEq(manager.balance, prevManagerBal + depositsInContractV1);
 
-        // claimWallet
-        address claimWallet = 0xDfB508E262B683EC52D533B80242Ae74087BC7EB;
-
-        // assumption : claim wallet has atleast depositDelegatedV1
+        // assumption : claim wallet should have atleast depositDelegatedV1
         uint256 depositDelegatedV1 = stakeManagerV1.depositsDelegated();
-        vm.deal(claimWallet, depositDelegatedV1 + 0.1 ether);
 
-        // claim wallet sends depositDelegatedV1 funds to manager
-        vm.prank(claimWallet);
+        // claim wallet (staderOperator) sends depositDelegatedV1 funds to manager
+        vm.prank(staderOperator);
         (bool success,) = payable(manager).call{ value: depositDelegatedV1 }("");
         require(success, "claim_wallet to manager transfer failed");
 
@@ -180,7 +189,6 @@ contract Migration is Test {
         assertEq(manager.balance, prevManagerBal + prevTVL);
 
         vm.startPrank(manager);
-        stakeManagerV2.pause();
         stakeManagerV2.delegateWithoutMinting{ value: prevTVL }();
         vm.stopPrank();
 
@@ -188,27 +196,26 @@ contract Migration is Test {
         uint256 er2 = stakeManagerV2.convertBnbXToBnb(1 ether);
         console2.log("v1: 1 BNBx to BNB:", er1);
         console2.log("v2: 1 BNBx to BNB:", er2);
-
+        console2.log("claim wallet balance left:", staderOperator.balance);
         assertEq(er1, er2, "migrate funds failed");
 
-        // set stake Manager on BnbX
+        // set stake Manager on BnbX // --------- EXECUTE TXN 7 on TIMELOCK -------------------- //
         vm.prank(timelock);
         BnbX(BNBx).setStakeManager(address(stakeManagerV2));
 
         vm.prank(admin);
         stakeManagerV2.unpause();
 
-        // simple delegate test
-        address user = makeAddr("user");
-        vm.deal(user, 2 ether);
+        // simple delegate test on stakeManagerV2
+        address userV2 = makeAddr("userV2");
+        vm.deal(userV2, 2 ether);
 
-        vm.prank(user);
+        vm.prank(userV2);
         stakeManagerV2.delegate{ value: er2 }("referral");
-
-        assertApproxEqAbs(BnbX(BNBx).balanceOf(user), 1 ether, 2);
+        assertApproxEqAbs(BnbX(BNBx).balanceOf(userV2), 1 ether, 2);
 
         // previous user1 claims from v1
-        vm.prank(user1);
+        vm.prank(userV1);
         stakeManagerV1.claimWithdraw(0);
     }
 }

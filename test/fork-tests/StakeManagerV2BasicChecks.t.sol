@@ -23,7 +23,7 @@ contract StakeManagerV2BasicChecks is StakeManagerV2Setup {
         uint256 totalDelegated2 = stakeManagerV2.totalDelegated();
         uint256 treasuryBNBxBal2 = _bnbxBalance(treasury);
 
-        if (totalDelegated2 < totalDelegated1) {
+        if (totalDelegated2 <= totalDelegated1) {
             assertApproxEqAbs(totalDelegated1, totalDelegated2, 5);
             assertEq(treasuryBNBxBal1, treasuryBNBxBal2);
         } else {

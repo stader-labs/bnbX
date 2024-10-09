@@ -9,6 +9,11 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
     function setUp() public override {
         super.setUp();
 
+        // set deposit and withdrawal operator same
+        address withdrawalOperator = operatorRegistry.preferredWithdrawalOperator();
+        vm.prank(staderOperator);
+        operatorRegistry.setPreferredDepositOperator(withdrawalOperator);
+
         startHoax(user1);
         stakeManagerV2.delegate{ value: amountDeposited }("referral");
         BnbX(bnbxAddr).approve(address(stakeManagerV2), 2 * amountDeposited);
@@ -49,7 +54,7 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
         vm.prank(user1);
         stakeManagerV2.requestWithdraw(bnbxToWithdraw, "");
 
-        assertEq(stakeManagerV2.getWithdrawalRequestCount(), 1);
+        assertEq(stakeManagerV2.getUnprocessedWithdrawalRequestCount(), 1);
 
         uint256[] memory userReqIds = stakeManagerV2.getUserRequestIds(user1);
         assertEq(userReqIds.length, 1);
@@ -64,7 +69,7 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
         uint256 batchId = stakeManagerV2.getBatchWithdrawalRequestCount();
         vm.prank(staderOperator);
         stakeManagerV2.startBatchUndelegation(10, address(0));
-        assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), 1);
+        assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), batchId + 1);
 
         BatchWithdrawalRequest memory batchRequest = stakeManagerV2.getBatchWithdrawalRequestInfo(batchId);
         assertApproxEqAbs(batchRequest.amountInBnb, stakeManagerV2.convertBnbXToBnb(bnbxToWithdraw), 5);
@@ -91,7 +96,7 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
         vm.startPrank(user1);
         BnbX(bnbxAddr).approve(address(stakeManagerV2), type(uint256).max);
         stakeManagerV2.requestWithdraw(amountMinted, "");
-        assertEq(stakeManagerV2.getWithdrawalRequestCount(), 1);
+        assertEq(stakeManagerV2.getUnprocessedWithdrawalRequestCount(), 1);
         assertEq(BnbX(bnbxAddr).balanceOf(address(stakeManagerV2)), amountMinted);
         vm.stopPrank();
         /* ---------------------------- startBatch undelegation first ------------------------
@@ -128,6 +133,8 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
         assertEq(stakeManagerV2.getUserRequestIds(user2).length, 3);
         assertEq(stakeManagerV2.getUnprocessedWithdrawalRequestCount(), 6);
 
+        uint256 prevNumBatches = stakeManagerV2.getBatchWithdrawalRequestCount();
+
         vm.startPrank(staderOperator);
         stakeManagerV2.startBatchUndelegation(2, address(0));
         assertEq(stakeManagerV2.getUnprocessedWithdrawalRequestCount(), 4);
@@ -137,7 +144,7 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
 
         vm.stopPrank();
 
-        assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), 2);
+        assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), prevNumBatches + 2);
 
         vm.warp(block.timestamp + STAKE_HUB.unbondPeriod() + 1);
 
@@ -236,13 +243,13 @@ contract StakeManagerV2Undelegations is StakeManagerV2Setup {
     function test_startBatchUndelegationSucceedsForFewWithdrawRequests() public {
         _batchUndelegateSetup(5 ether, 3 ether);
 
-        assertEq(stakeManagerV2.getWithdrawalRequestCount(), 6);
-        assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), 0);
+        assertEq(stakeManagerV2.getUnprocessedWithdrawalRequestCount(), 6);
+        uint256 prevNumBatches = stakeManagerV2.getBatchWithdrawalRequestCount();
 
         vm.prank(staderOperator);
         stakeManagerV2.startBatchUndelegation(8, address(0));
 
-        assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), 1);
+        assertEq(stakeManagerV2.getBatchWithdrawalRequestCount(), prevNumBatches + 1);
     }
 
     function _batchUndelegateSetup(uint256 bnbxAmount1, uint256 bnbxAmount2) internal {
