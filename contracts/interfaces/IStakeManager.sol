@@ -29,16 +29,12 @@ interface IStakeManager {
         address _bcDepositWallet,
         address _bot,
         uint256 _feeBps
-    ) external;
+    )
+        external;
 
     function deposit() external payable;
 
-    function startDelegation()
-        external
-        payable
-        returns (uint256 _uuid, uint256 _amount);
-
-    function retryTransferOut(uint256 _uuid) external payable;
+    function startDelegation() external payable returns (uint256 _uuid, uint256 _amount);
 
     function completeDelegation(uint256 _uuid) external;
 
@@ -48,9 +44,7 @@ interface IStakeManager {
 
     function claimWithdraw(uint256 _idx) external;
 
-    function startUndelegation()
-        external
-        returns (uint256 _uuid, uint256 _amount);
+    function startUndelegation() external returns (uint256 _uuid, uint256 _amount);
 
     function undelegationStarted(uint256 _uuid) external;
 
@@ -68,8 +62,7 @@ interface IStakeManager {
 
     function setMinDelegateThreshold(uint256 _minDelegateThreshold) external;
 
-    function setMinUndelegateThreshold(uint256 _minUndelegateThreshold)
-        external;
+    function setMinUndelegateThreshold(uint256 _minUndelegateThreshold) external;
 
     function setFeeBps(uint256 _feeBps) external;
 
@@ -80,57 +73,34 @@ interface IStakeManager {
     function getContracts()
         external
         view
-        returns (
-            address _manager,
-            address _bnbX,
-            address _tokenHub,
-            address _bcDepositWallet
-        );
+        returns (address _manager, address _bnbX, address _tokenHub, address _bcDepositWallet);
 
     function getTokenHubRelayFee() external view returns (uint256);
 
-    function getBotDelegateRequest(uint256 _uuid)
-        external
-        view
-        returns (BotDelegateRequest memory);
+    function getBotDelegateRequest(uint256 _uuid) external view returns (BotDelegateRequest memory);
 
-    function getBotUndelegateRequest(uint256 _uuid)
-        external
-        view
-        returns (BotUndelegateRequest memory);
+    function getBotUndelegateRequest(uint256 _uuid) external view returns (BotUndelegateRequest memory);
 
-    function getUserWithdrawalRequests(address _address)
-        external
-        view
-        returns (WithdrawalRequest[] memory);
+    function getUserWithdrawalRequests(address _address) external view returns (WithdrawalRequest[] memory);
 
-    function getUserRequestStatus(address _user, uint256 _idx)
+    function getUserRequestStatus(
+        address _user,
+        uint256 _idx
+    )
         external
         view
         returns (bool _isClaimable, uint256 _amount);
 
-    function getBnbXWithdrawLimit()
-        external
-        view
-        returns (uint256 _bnbXWithdrawLimit);
-
-    function getExtraBnbInContract() external view returns (uint256 _extraBnb);
+    function getBnbXWithdrawLimit() external view returns (uint256 _bnbXWithdrawLimit);
 
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
 
-    function convertBnbXToBnb(uint256 _amountInBnbX)
-        external
-        view
-        returns (uint256);
+    function convertBnbXToBnb(uint256 _amountInBnbX) external view returns (uint256);
 
     event Delegate(uint256 _uuid, uint256 _amount);
     event TransferOut(uint256 _amount);
     event RequestWithdraw(address indexed _account, uint256 _amountInBnbX);
-    event ClaimWithdrawal(
-        address indexed _account,
-        uint256 _idx,
-        uint256 _amount
-    );
+    event ClaimWithdrawal(address indexed _account, uint256 _idx, uint256 _amount);
     event Undelegate(uint256 _uuid, uint256 _amount);
     event Redelegate(uint256 _rewardsId, uint256 _amount);
     event SetManager(address indexed _address);

@@ -1,4 +1,4 @@
-import { ethers } from "hardhat";
+import { ethers, upgrades } from "hardhat";
 
 async function main() {
   const stakeManagerContractFactory = await ethers.getContractFactory(
@@ -6,11 +6,11 @@ async function main() {
   );
   const stakeManagerContract = await stakeManagerContractFactory.deploy();
 
-  await stakeManagerContract.deployed();
+  await stakeManagerContract.waitForDeployment();
 
   console.log(
-    "StakeManager Contract deployed to:",
-    stakeManagerContract.address
+    "StakeManager Contract impl deployed to:",
+    await stakeManagerContract.getAddress()
   );
 }
 

@@ -1,47 +1,60 @@
-# bnbX
+# BNBx
 
-```shell
-npx hardhat accounts
-npx hardhat compile
-npx hardhat clean
-npx hardhat test
-npx hardhat node
-npx hardhat help
-REPORT_GAS=true npx hardhat test
-npx hardhat coverage
-npx hardhat run scripts/deploy.ts
-TS_NODE_FILES=true npx ts-node scripts/deploy.ts
-npx eslint '**/*.{js,ts}'
-npx eslint '**/*.{js,ts}' --fix
-npx prettier '**/*.{json,sol,md}' --check
-npx prettier '**/*.{json,sol,md}' --write
-npx solhint 'contracts/**/*.sol'
-npx solhint 'contracts/**/*.sol' --fix
-```
+## Description
 
-## Deploying
+Staderlabs Liquid Staking Product on BSC
 
-To deploy contracts, run:
+## Contracts
+
+### Mainnet
+
+| Name             | Address                                    |
+| ---------------- | ------------------------------------------ |
+| StakeManagerV2   | 0x3b961e83400D51e6E1AF5c450d3C7d7b80588d28 |
+| OperatorRegistry | 0x9C1759359Aa7D32911c5bAD613E836aEd7c621a8 |
+
+## Development
+
+### 1. setup
+
+import wallet with cast
 
 ```bash
-NODE_ENV=main npx hardhat deployBnbXProxy <admin> --network <network>
-NODE_ENV=main npx hardhat upgradeBnbXProxy <proxyAddress> --network <network>
-NODE_ENV=main npx hardhat deployBnbXImpl --network <network>
-
-NODE_ENV=main npx hardhat deployStakeManagerProxy <bnbX> <admin> <manager> <tokenHub> <bcDepositWallet> <bot> <feeBps> --network <network>
-NODE_ENV=main npx hardhat upgradeStakeManagerProxy <proxyAddress> --network <network>
-NODE_ENV=main npx hardhat deployStakeManagerImpl --network <network>
-
-NODE_ENV=main npx hardhat deployReferralContract <admin> <trustedForwarder> --network <network>
-NODE_ENV=main npx hardhat upgradeReferralContract <proxyAddress> --network <network>
+cast wallet import devKey --interactive
 ```
 
-## Verifying on etherscan
+prepare env variables
+copy `.env.example` to `.env` and fill it
+
+### 2. compile contracts
 
 ```bash
-npx hardhat verify <address> <...args> --network <network>
+forge build
 ```
 
-## Integration
+### 3. run tests
 
-Smart contract integration guide is at [link](INTEGRATION.md)
+```bash
+forge test
+```
+
+### 4. run script on local
+
+run mainnet fork using anvil
+
+```bash
+source .env
+anvil --fork-url $BSC_MAINNET_RPC_URL
+```
+
+open a new terminal
+
+```bash
+make migrate-local-test
+```
+
+### 5. run script on mainnet
+
+```bash
+make migrate-mainnet
+```
