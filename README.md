@@ -10,6 +10,7 @@ Staderlabs Liquid Staking Product on BSC
 
 | Name             | Address                                    |
 | ---------------- | ------------------------------------------ |
+| BNBx Token       | 0x1bdd3cf7f79cfb8edbb955f20ad99211551ba275 |
 | StakeManagerV2   | 0x3b961e83400D51e6E1AF5c450d3C7d7b80588d28 |
 | OperatorRegistry | 0x9C1759359Aa7D32911c5bAD613E836aEd7c621a8 |
 
@@ -18,7 +19,7 @@ Staderlabs Liquid Staking Product on BSC
 | Name             | Address                                    |
 | ---------------- | ------------------------------------------ |
 | BNBx Token       | 0x6cd3f51A92d022030d6e75760200c051caA7152A |
-| StakeManagerV2   | 0x1632E7D92763e7E0A1ABE5b3e9c2A808aeCcbD5  |
+| StakeManagerV2   | 0x1632E7D92763e7E0A1ABE5b3e9c2A808aeCcbD57 |
 | OperatorRegistry | 0x0735aD824354A919Ef32D3157505B7C3bc05e3f6 |
 
 ## Development
