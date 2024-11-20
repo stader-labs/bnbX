@@ -1,5 +1,5 @@
+import { BigNumber } from "ethers";
 import {
-  ethers,
   Finding,
   FindingSeverity,
   FindingType,
@@ -7,12 +7,13 @@ import {
   TransactionEvent,
 } from "forta-agent";
 import {
-  MAX_REWARD_THRESHOLD,
-  MIN_REWARD_THRESHOLD,
   protocol,
+  REWARD_CHANGE_PCT,
   REWARD_EVENT,
   STAKE_MANAGER,
 } from "./constants";
+
+let lastRewardAmount: BigNumber;
 
 const handleTransaction: HandleTransaction = async (
   txEvent: TransactionEvent
@@ -22,45 +23,31 @@ const handleTransaction: HandleTransaction = async (
   const bnbxRewardEvents = txEvent.filterLog(REWARD_EVENT, STAKE_MANAGER);
 
   bnbxRewardEvents.forEach((rewardEvents) => {
-    const { _rewardsId, _amount } = rewardEvents.args;
-
-    const normalizedValue = ethers.utils.formatEther(_amount);
-    const minThreshold = ethers.utils.parseEther(MIN_REWARD_THRESHOLD);
-    const maxThreshold = ethers.utils.parseEther(MAX_REWARD_THRESHOLD);
-
-    if (_amount.lt(minThreshold)) {
+    const { _amount } = rewardEvents.args;
+    if (
+      lastRewardAmount &&
+      lastRewardAmount
+        .sub(_amount)
+        .abs()
+        .gt(lastRewardAmount.mul(REWARD_CHANGE_PCT).div(100))
+    ) {
       findings.push(
         Finding.fromObject({
-          name: "Low BNBx Reward",
-          description: `Low amount of BNBx Reward Received: ${normalizedValue}`,
-          alertId: "BNBx-3",
+          name: "Significant Reward Change",
+          description: `Reward changed more than ${REWARD_CHANGE_PCT} %`,
+          alertId: "BNBx-REWARD-CHANGE",
           protocol: protocol,
-          severity: FindingSeverity.High,
+          severity: FindingSeverity.Medium,
           type: FindingType.Info,
           metadata: {
-            rewardsId: _rewardsId.toString(),
-            amount: _amount.toString(),
+            lastRewardAmount: lastRewardAmount.toString(),
+            cuurentRewardAmount: _amount.toString(),
           },
         })
       );
     }
 
-    if (_amount.gt(maxThreshold)) {
-      findings.push(
-        Finding.fromObject({
-          name: "High BNBx Reward",
-          description: `High amount of BNBx Reward Received: ${normalizedValue}`,
-          alertId: "BNBx-4",
-          protocol: "BNBx Stader",
-          severity: FindingSeverity.High,
-          type: FindingType.Info,
-          metadata: {
-            _rewardsId,
-            _amount,
-          },
-        })
-      );
-    }
+    lastRewardAmount = _amount;
   });
 
   return findings;
