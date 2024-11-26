@@ -14,6 +14,14 @@ Staderlabs Liquid Staking Product on BSC
 | StakeManagerV2   | 0x3b961e83400D51e6E1AF5c450d3C7d7b80588d28 |
 | OperatorRegistry | 0x9C1759359Aa7D32911c5bAD613E836aEd7c621a8 |
 
+#### Multisigs and Timelocks
+
+| Name     | Address                                    |
+| -------- | ------------------------------------------ |
+| ADMIN    | 0xb866E12b414d9f975034C4BA51498E6E64559a4c |
+| MANAGER  | 0x79A2Ae748AC8bE4118B7a8096681B30310c3adBE |
+| TIMELOCK | 0xD990A252E7e36700d47520e46cD2B3E446836488 |
+
 ### Testnet
 
 | Name             | Address                                    |
