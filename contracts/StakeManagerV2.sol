@@ -148,7 +148,7 @@ contract StakeManagerV2 is
     /// @notice Claim the BNB from a withdrawal request.
     /// @param _idx user withdraw request array index
     /// @return The amount of BNB claimed.
-    function claimWithdrawal(uint256 _idx) external override nonReentrant whenNotPaused returns (uint256) {
+    function claimWithdrawal(uint256 _idx) external override nonReentrant returns (uint256) {
         WithdrawalRequest storage request = _extractRequest(msg.sender, _idx);
         if (request.claimed) revert AlreadyClaimed();
         if (!request.processed) revert NotProcessed();
@@ -209,7 +209,6 @@ contract StakeManagerV2 is
     )
         external
         override
-        whenNotPaused
         onlyRole(OPERATOR_ROLE)
     {
         if (_operator == address(0)) {
@@ -245,7 +244,7 @@ contract StakeManagerV2 is
     }
 
     /// @notice Complete the undelegation process.
-    function completeBatchUndelegation() external override nonReentrant whenNotPaused {
+    function completeBatchUndelegation() external override nonReentrant {
         BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnbondingBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 
