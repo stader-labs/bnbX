@@ -31,18 +31,24 @@ interface IStakeManagerV2 {
     error MaxLimitReached();
     error ExchangeRateOutOfBounds(uint256 _currentER, uint256 _maxAllowableDelta, uint256 _newER);
     error WithdrawalBelowMinimum();
+    error RedemptionNotEnabled();
+    error InsufficientBnbBalance();
 
     function delegate(string calldata _referralId) external payable returns (uint256);
     function requestWithdraw(uint256 _amount, string calldata _referralId) external returns (uint256);
     function claimWithdrawal(uint256 _idx) external returns (uint256);
+    function redeemBnbxForBnb(uint256 _amountInBnbX) external returns (uint256);
 
     function startBatchUndelegation(uint256 _batchSize, address _operator) external;
     function completeBatchUndelegation() external;
     function redelegate(address _fromOperator, address _toOperator, uint256 _amount) external;
+    function undelegateAllBnbFromAllOperators() external;
+    function claimAllBnbFromAllOperators() external returns (uint256);
     function delegateWithoutMinting() external payable;
     function updateER() external;
     function pause() external;
     function unpause() external;
+    function setRedemptionEnabled(bool _enabled) external;
 
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
     function convertBnbXToBnb(uint256 _amountInBnbX) external view returns (uint256);
@@ -62,4 +68,8 @@ interface IStakeManagerV2 {
     event SetMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser);
     event SetMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps);
     event SetMinWithdrawableBnbx(uint256 _minWithdrawableBnbx);
+    event UndelegatedAllBnbFromAllOperators(uint256 _totalBnbUndelegated, uint256 _totalBnbxSupply);
+    event ClaimedAllBnbFromAllOperators(uint256 _totalClaimedBnb);
+    event RedeemedBnbxForBnb(address indexed _account, uint256 _amountInBnbX, uint256 _amountInBnb);
+    event SetRedemptionEnabled(bool _enabled);
 }
