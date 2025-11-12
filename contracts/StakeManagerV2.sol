@@ -219,7 +219,9 @@ contract StakeManagerV2 is
             revert OperatorNotExisted();
         }
 
-        updateER();
+        uint256 currentER = convertBnbXToBnb(1 ether);
+        _updateER();
+        _checkIfNewExchangeRateWithinLimits(currentER);
 
         address creditContract = STAKE_HUB.getValidatorCreditContract(_operator);
         uint256 amountInBnbXToBurn = _computeBnbXToBurn(_batchSize, creditContract);
