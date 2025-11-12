@@ -184,8 +184,7 @@ contract StakeManagerV2 is
         if (amountInBnb > address(this).balance) revert InsufficientBnbBalance();
 
         // Burn BNBx
-        BNBX.safeTransferFrom(msg.sender, address(this), _amountInBnbX);
-        BNBX.burn(address(this), _amountInBnbX);
+        BNBX.burn(msg.sender, _amountInBnbX);
 
         // Transfer BNB to user
         (bool success,) = payable(msg.sender).call{ value: amountInBnb }("");
@@ -303,8 +302,9 @@ contract StakeManagerV2 is
             
             if (pooledBnb > 0) {
                 uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(pooledBnb);
+                uint256 amountToWithdrawFromOperator = IStakeCredit(creditContract).getPooledBNBByShares(shares);
                 STAKE_HUB.undelegate(operator, shares);
-                totalUndelegatedBnb += pooledBnb;
+                totalUndelegatedBnb += amountToWithdrawFromOperator;
             }
             
             unchecked {
@@ -332,7 +332,7 @@ contract StakeManagerV2 is
 
         for (uint256 i; i < operatorsLength;) {
             address operator = operators[i];
-            STAKE_HUB.claim(operator, 0);
+            STAKE_HUB.claim(operator, 1);
             
             unchecked {
                 ++i;
@@ -567,9 +567,19 @@ contract StakeManagerV2 is
     /// @param _amount The amount of BNB to convert.
     /// @return The amount of BnbX equivalent.
     function convertBnbToBnbX(uint256 _amount) public view override returns (uint256) {
-        uint256 totalShares = BNBX.totalSupply();
+        uint256 totalShares;
+        uint256 totalDelegated_;
+
+        if (redemptionEnabled) {
+            totalShares = totalBnbxSupplyAtUndelegation;
+            totalDelegated_ = totalBnbUndelegated;
+        } else {
+            totalShares = BNBX.totalSupply();
+            totalDelegated_ = totalDelegated;
+        }
+
         totalShares = totalShares == 0 ? 1 : totalShares;
-        uint256 totalDelegated_ = totalDelegated == 0 ? 1 : totalDelegated;
+        totalDelegated_ = totalDelegated_ == 0 ? 1 : totalDelegated_;
 
         return (_amount * totalShares) / totalDelegated_;
     }
@@ -578,10 +588,21 @@ contract StakeManagerV2 is
     /// @param _amountInBnbX The amount of BnbX to convert.
     /// @return The amount of BNB equivalent.
     function convertBnbXToBnb(uint256 _amountInBnbX) public view override returns (uint256) {
-        uint256 totalShares = BNBX.totalSupply();
-        totalShares = totalShares == 0 ? 1 : totalShares;
+        uint256 totalShares;
+        uint256 totalDelegated_;
 
-        return (_amountInBnbX * totalDelegated) / totalShares;
+        if (redemptionEnabled) {
+            totalShares = totalBnbxSupplyAtUndelegation;
+            totalDelegated_ = totalBnbUndelegated;
+        } else {
+            totalShares = BNBX.totalSupply();
+            totalDelegated_ = totalDelegated;
+        }
+
+        totalShares = totalShares == 0 ? 1 : totalShares;
+        totalDelegated_ = totalDelegated_ == 0 ? 1 : totalDelegated_;
+
+        return (_amountInBnbX * totalDelegated_) / totalShares;
     }
 
     /// @notice Get the total stake across all operators.
