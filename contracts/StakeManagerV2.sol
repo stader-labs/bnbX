@@ -170,6 +170,7 @@ contract StakeManagerV2 is
     /// @param _amountInBnbX The amount of BNBx to burn and redeem.
     /// @return The amount of BNB received.
     /// @dev This function can only be called when redemption is enabled.
+    /// @dev Caller must approve the contract to burn the specified BNBx amount before calling.
     /// @dev The exchange rate is based on totalBnbUndelegated and totalBnbxSupplyAtUndelegation snapshot.
     function redeemBnbxForBnb(uint256 _amountInBnbX) external override nonReentrant returns (uint256) {
         if (!redemptionEnabled) revert RedemptionNotEnabled();
@@ -245,7 +246,7 @@ contract StakeManagerV2 is
     }
 
     /// @notice Complete the undelegation process.
-    function completeBatchUndelegation() external override nonReentrant {
+    function completeBatchUndelegation() external override nonReentrant onlyRole(OPERATOR_ROLE) {
         BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnbondingBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 
