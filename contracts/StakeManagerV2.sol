@@ -38,13 +38,14 @@ contract StakeManagerV2 is
     uint256 public firstUnprocessedUserIndex;
     uint256 public firstUnbondingBatchIndex;
     uint256 public minWithdrawableBnbx;
-    uint256 public totalBnbUndelegated;
-    uint256 public totalBnbxSupplyAtUndelegation;
-    bool public redemptionEnabled;
 
     WithdrawalRequest[] private withdrawalRequests;
     BatchWithdrawalRequest[] private batchWithdrawalRequests;
     mapping(address => uint256[]) private userRequests;
+
+    uint256 public totalBnbUndelegated;
+    uint256 public totalBnbxSupplyAtUndelegation;
+    bool public redemptionEnabled;
 
     // @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
