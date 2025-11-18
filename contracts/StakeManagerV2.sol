@@ -180,8 +180,7 @@ contract StakeManagerV2 is
         if (totalBnbUndelegated == 0) revert ZeroAmount();
 
         // Calculate BNB amount based on snapshot exchange rate
-        // Exchange rate = totalBnbUndelegated / totalBnbxSupplyAtUndelegation
-        uint256 amountInBnb = (_amountInBnbX * totalBnbUndelegated) / totalBnbxSupplyAtUndelegation;
+        uint256 amountInBnb = convertBnbXToBnb(_amountInBnbX);
         
         if (amountInBnb > address(this).balance) revert InsufficientBnbBalance();
 
