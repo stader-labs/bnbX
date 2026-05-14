@@ -447,7 +447,7 @@ contract StakeManagerV2 is
     /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
     /// @param _custodyDelay Seconds from now until `sweepToCustody` opens.
     function setCustodyDelay(uint256 _custodyDelay) external onlyRole(DEFAULT_ADMIN_ROLE) {
-        if (_custodyDelay == 0) revert ZeroAmount();
+        if (_custodyDelay == 0) revert ZeroCustodyDelay();
         sweepToCustodyTimestamp = block.timestamp + _custodyDelay;
         emit SetCustodyDelay(sweepToCustodyTimestamp);
     }

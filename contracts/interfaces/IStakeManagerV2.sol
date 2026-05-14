@@ -35,6 +35,7 @@ interface IStakeManagerV2 {
     error InsufficientBnbBalance();
     error CustodyDelayNotConfigured();
     error CustodyDelayNotElapsed();
+    error ZeroCustodyDelay();
 
     function delegate(string calldata _referralId) external payable returns (uint256);
     function requestWithdraw(uint256 _amount, string calldata _referralId) external returns (uint256);
