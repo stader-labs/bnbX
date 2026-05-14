@@ -70,4 +70,6 @@ interface IStakeManagerV2 {
     event SetMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser);
     event SetMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps);
     event SetMinWithdrawableBnbx(uint256 _minWithdrawableBnbx);
+    event SetCustodyDelay(uint256 _sweepToCustodyTimestamp);
+    event Swept(address indexed _custody, uint256 _amount);
 }

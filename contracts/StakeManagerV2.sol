@@ -38,8 +38,6 @@ contract StakeManagerV2 is
     uint256 public firstUnprocessedUserIndex;
     uint256 public firstUnbondingBatchIndex;
     uint256 public minWithdrawableBnbx;
-    uint256 public custodyDelay;
-    uint256 public custodyConfigTimestamp;
 
     WithdrawalRequest[] private withdrawalRequests;
     BatchWithdrawalRequest[] private batchWithdrawalRequests;
@@ -48,6 +46,8 @@ contract StakeManagerV2 is
     uint256 public totalBnbUndelegated;
     uint256 public totalBnbxSupplyAtUndelegation;
     bool public redemptionEnabled;
+
+    uint256 public sweepToCustodyTimestamp;
 
     // @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -441,27 +441,26 @@ contract StakeManagerV2 is
         emit SetRedemptionEnabled(_enabled);
     }
 
-    /// @notice Set the delay (seconds) that must elapse after the last
-    /// reconfiguration before `sweepToCustody` is callable.
-    /// @dev Bumps `custodyConfigTimestamp` to restart the sweep delay clock.
-    /// @dev Can only be called by an address with the MANAGER_ROLE.
-    /// @param _custodyDelay New delay in seconds.
-    function setCustodyDelay(uint256 _custodyDelay) external onlyRole(MANAGER_ROLE) {
-        custodyDelay = _custodyDelay;
-        custodyConfigTimestamp = block.timestamp;
-        emit SetCustodyDelay(_custodyDelay, block.timestamp);
+    /// @notice Arm `sweepToCustody` so it becomes callable at
+    /// `block.timestamp + _custodyDelay`. Subsequent calls overwrite the
+    /// target time, so admin can shorten or extend the window.
+    /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
+    /// @param _custodyDelay Seconds from now until `sweepToCustody` opens.
+    function setCustodyDelay(uint256 _custodyDelay) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_custodyDelay == 0) revert ZeroAmount();
+        sweepToCustodyTimestamp = block.timestamp + _custodyDelay;
+        emit SetCustodyDelay(sweepToCustodyTimestamp);
     }
 
     /// @notice Sweep an explicit amount of BNB from the contract to a
     /// caller-provided custody address. The caller picks `_amount` because
     /// bnbX is an ongoing protocol — draining the full balance would brick
-    /// `claimWithdrawal` payouts. Manager is responsible for leaving enough
+    /// `claimWithdrawal` payouts. Admin is responsible for leaving enough
     /// BNB to cover live unclaimed batch withdrawals.
     /// @dev Reverts until `setCustodyDelay` has been called at least once
-    /// (`custodyConfigTimestamp != 0`) AND
-    /// `block.timestamp >= custodyConfigTimestamp + custodyDelay`. Any
-    /// subsequent `setCustodyDelay` restarts the window.
-    /// @dev Can only be called by an address with the MANAGER_ROLE.
+    /// (`sweepToCustodyTimestamp != 0`) AND
+    /// `block.timestamp >= sweepToCustodyTimestamp`.
+    /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
     /// @param _custody Address that receives the swept BNB.
     /// @param _amount Amount of BNB (wei) to send to `_custody`.
     function sweepToCustody(
@@ -470,12 +469,12 @@ contract StakeManagerV2 is
     )
         external
         nonReentrant
-        onlyRole(MANAGER_ROLE)
+        onlyRole(DEFAULT_ADMIN_ROLE)
     {
         if (_custody == address(0)) revert ZeroAddress();
         if (_amount == 0) revert ZeroAmount();
-        if (custodyConfigTimestamp == 0) revert CustodyDelayNotConfigured();
-        if (block.timestamp < custodyConfigTimestamp + custodyDelay) {
+        if (sweepToCustodyTimestamp == 0) revert CustodyDelayNotConfigured();
+        if (block.timestamp < sweepToCustodyTimestamp) {
             revert CustodyDelayNotElapsed();
         }
 

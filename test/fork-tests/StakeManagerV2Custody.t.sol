@@ -9,12 +9,13 @@ import { ITransparentUpgradeableProxy } from
 /// @dev Fork tests for the custody sweep mechanism added to `StakeManagerV2`.
 /// The production proxy still points at the pre-custody impl, so each test
 /// first upgrades the proxy to a freshly deployed impl that contains the new
-/// state vars + functions.
+/// state var + functions. Both `setCustodyDelay` and `sweepToCustody` are
+/// DEFAULT_ADMIN_ROLE-gated, so tests prank `admin`.
 contract StakeManagerV2Custody is StakeManagerV2Setup {
     address internal custody;
     address internal attacker;
 
-    event SetCustodyDelay(uint256 _custodyDelay, uint256 _custodyConfigTimestamp);
+    event SetCustodyDelay(uint256 _sweepToCustodyTimestamp);
     event Swept(address indexed _custody, uint256 _amount);
 
     function setUp() public override {
@@ -26,13 +27,21 @@ contract StakeManagerV2Custody is StakeManagerV2Setup {
 
     // -------- access control --------
 
-    function test_setCustodyDelay_revertsForNonManager() public {
+    function test_setCustodyDelay_revertsForNonAdmin() public {
         vm.expectRevert();
         vm.prank(attacker);
         stakeManagerV2.setCustodyDelay(1 days);
     }
 
-    function test_sweepToCustody_revertsForNonManager() public {
+    function test_setCustodyDelay_revertsForManager() public {
+        // Manager used to control this; with DEFAULT_ADMIN_ROLE-only the
+        // manager multisig must no longer be sufficient.
+        vm.expectRevert();
+        vm.prank(manager);
+        stakeManagerV2.setCustodyDelay(1 days);
+    }
+
+    function test_sweepToCustody_revertsForNonAdmin() public {
         _arm(1 days);
         skip(1 days);
         _fundContract(1 ether);
@@ -44,38 +53,54 @@ contract StakeManagerV2Custody is StakeManagerV2Setup {
 
     // -------- setCustodyDelay --------
 
-    function test_setCustodyDelay_setsValuesAndEmits() public {
+    function test_setCustodyDelay_setsTargetAndEmits() public {
         uint256 delay = 7 days;
+        uint256 expectedTarget = block.timestamp + delay;
 
         vm.expectEmit(false, false, false, true);
-        emit SetCustodyDelay(delay, block.timestamp);
+        emit SetCustodyDelay(expectedTarget);
 
-        vm.prank(manager);
+        vm.prank(admin);
         stakeManagerV2.setCustodyDelay(delay);
 
-        assertEq(stakeManagerV2.custodyDelay(), delay);
-        assertEq(stakeManagerV2.custodyConfigTimestamp(), block.timestamp);
+        assertEq(stakeManagerV2.sweepToCustodyTimestamp(), expectedTarget);
     }
 
-    function test_setCustodyDelay_reconfigRestartsClock() public {
+    function test_setCustodyDelay_revertsOnZero() public {
+        vm.prank(admin);
+        vm.expectRevert(IStakeManagerV2.ZeroAmount.selector);
+        stakeManagerV2.setCustodyDelay(0);
+    }
+
+    function test_setCustodyDelay_overwritesTargetOnReconfig() public {
+        _arm(7 days);
+        uint256 firstTarget = stakeManagerV2.sweepToCustodyTimestamp();
+
+        skip(1 days);
+
+        _arm(3 days);
+        uint256 secondTarget = stakeManagerV2.sweepToCustodyTimestamp();
+
+        assertEq(secondTarget, block.timestamp + 3 days);
+        // Second call should fully overwrite, not extend.
+        assertTrue(secondTarget != firstTarget);
+    }
+
+    function test_setCustodyDelay_reconfigGatesSweep() public {
         _arm(7 days);
         skip(6 days);
-
-        uint256 t1 = block.timestamp;
-        vm.prank(manager);
-        stakeManagerV2.setCustodyDelay(7 days);
-
-        assertEq(stakeManagerV2.custodyConfigTimestamp(), t1);
-
         _fundContract(1 ether);
 
-        skip(6 days);
-        vm.prank(manager);
+        // 6 days in, original target is 1 day away. Reconfiguring with a
+        // 7-day delay must push the window further out, not let sweep fire.
+        _arm(7 days);
+
+        vm.prank(admin);
         vm.expectRevert(IStakeManagerV2.CustodyDelayNotElapsed.selector);
         stakeManagerV2.sweepToCustody(custody, 1 ether);
 
-        skip(1 days);
-        vm.prank(manager);
+        skip(7 days);
+        vm.prank(admin);
         stakeManagerV2.sweepToCustody(custody, 1 ether);
         assertEq(custody.balance, 1 ether);
     }
@@ -85,17 +110,17 @@ contract StakeManagerV2Custody is StakeManagerV2Setup {
     function test_sweepToCustody_revertsBeforeArming() public {
         _fundContract(1 ether);
 
-        vm.prank(manager);
+        vm.prank(admin);
         vm.expectRevert(IStakeManagerV2.CustodyDelayNotConfigured.selector);
         stakeManagerV2.sweepToCustody(custody, 1 ether);
     }
 
-    function test_sweepToCustody_revertsBeforeDelayElapsed() public {
+    function test_sweepToCustody_revertsBeforeTargetElapsed() public {
         _arm(7 days);
         _fundContract(1 ether);
         skip(6 days);
 
-        vm.prank(manager);
+        vm.prank(admin);
         vm.expectRevert(IStakeManagerV2.CustodyDelayNotElapsed.selector);
         stakeManagerV2.sweepToCustody(custody, 1 ether);
     }
@@ -105,7 +130,7 @@ contract StakeManagerV2Custody is StakeManagerV2Setup {
         skip(1 days);
         _fundContract(1 ether);
 
-        vm.prank(manager);
+        vm.prank(admin);
         vm.expectRevert(IStakeManagerV2.ZeroAddress.selector);
         stakeManagerV2.sweepToCustody(address(0), 1 ether);
     }
@@ -115,9 +140,21 @@ contract StakeManagerV2Custody is StakeManagerV2Setup {
         skip(1 days);
         _fundContract(1 ether);
 
-        vm.prank(manager);
+        vm.prank(admin);
         vm.expectRevert(IStakeManagerV2.ZeroAmount.selector);
         stakeManagerV2.sweepToCustody(custody, 0);
+    }
+
+    function test_sweepToCustody_revertsOnFailedTransfer() public {
+        _arm(1 days);
+        skip(1 days);
+        _fundContract(1 ether);
+
+        address rejector = address(new RejectETH());
+
+        vm.prank(admin);
+        vm.expectRevert(IStakeManagerV2.TransferFailed.selector);
+        stakeManagerV2.sweepToCustody(rejector, 1 ether);
     }
 
     // -------- sweepToCustody happy path --------
@@ -133,7 +170,7 @@ contract StakeManagerV2Custody is StakeManagerV2Setup {
         vm.expectEmit(true, false, false, true);
         emit Swept(custody, 2 ether);
 
-        vm.prank(manager);
+        vm.prank(admin);
         stakeManagerV2.sweepToCustody(custody, 2 ether);
 
         assertEq(custody.balance, preCustody + 2 ether);
@@ -145,7 +182,7 @@ contract StakeManagerV2Custody is StakeManagerV2Setup {
         skip(1 days);
         _fundContract(3 ether);
 
-        vm.startPrank(manager);
+        vm.startPrank(admin);
         stakeManagerV2.sweepToCustody(custody, 1 ether);
         stakeManagerV2.sweepToCustody(custody, 2 ether);
         vm.stopPrank();
@@ -156,7 +193,7 @@ contract StakeManagerV2Custody is StakeManagerV2Setup {
     // -------- helpers --------
 
     function _arm(uint256 delay) internal {
-        vm.prank(manager);
+        vm.prank(admin);
         stakeManagerV2.setCustodyDelay(delay);
     }
 
@@ -168,5 +205,11 @@ contract StakeManagerV2Custody is StakeManagerV2Setup {
         address newImpl = address(new StakeManagerV2());
         vm.prank(timelock);
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(address(stakeManagerV2)), newImpl);
+    }
+}
+
+contract RejectETH {
+    receive() external payable {
+        revert("no eth");
     }
 }
