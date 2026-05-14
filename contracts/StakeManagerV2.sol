@@ -38,6 +38,8 @@ contract StakeManagerV2 is
     uint256 public firstUnprocessedUserIndex;
     uint256 public firstUnbondingBatchIndex;
     uint256 public minWithdrawableBnbx;
+    uint256 public custodyDelay;
+    uint256 public custodyConfigTimestamp;
 
     WithdrawalRequest[] private withdrawalRequests;
     BatchWithdrawalRequest[] private batchWithdrawalRequests;
@@ -437,6 +439,50 @@ contract StakeManagerV2 is
     function setRedemptionEnabled(bool _enabled) external onlyRole(MANAGER_ROLE) {
         redemptionEnabled = _enabled;
         emit SetRedemptionEnabled(_enabled);
+    }
+
+    /// @notice Set the delay (seconds) that must elapse after the last
+    /// reconfiguration before `sweepToCustody` is callable.
+    /// @dev Bumps `custodyConfigTimestamp` to restart the sweep delay clock.
+    /// @dev Can only be called by an address with the MANAGER_ROLE.
+    /// @param _custodyDelay New delay in seconds.
+    function setCustodyDelay(uint256 _custodyDelay) external onlyRole(MANAGER_ROLE) {
+        custodyDelay = _custodyDelay;
+        custodyConfigTimestamp = block.timestamp;
+        emit SetCustodyDelay(_custodyDelay, block.timestamp);
+    }
+
+    /// @notice Sweep an explicit amount of BNB from the contract to a
+    /// caller-provided custody address. The caller picks `_amount` because
+    /// bnbX is an ongoing protocol — draining the full balance would brick
+    /// `claimWithdrawal` payouts. Manager is responsible for leaving enough
+    /// BNB to cover live unclaimed batch withdrawals.
+    /// @dev Reverts until `setCustodyDelay` has been called at least once
+    /// (`custodyConfigTimestamp != 0`) AND
+    /// `block.timestamp >= custodyConfigTimestamp + custodyDelay`. Any
+    /// subsequent `setCustodyDelay` restarts the window.
+    /// @dev Can only be called by an address with the MANAGER_ROLE.
+    /// @param _custody Address that receives the swept BNB.
+    /// @param _amount Amount of BNB (wei) to send to `_custody`.
+    function sweepToCustody(
+        address _custody,
+        uint256 _amount
+    )
+        external
+        nonReentrant
+        onlyRole(MANAGER_ROLE)
+    {
+        if (_custody == address(0)) revert ZeroAddress();
+        if (_amount == 0) revert ZeroAmount();
+        if (custodyConfigTimestamp == 0) revert CustodyDelayNotConfigured();
+        if (block.timestamp < custodyConfigTimestamp + custodyDelay) {
+            revert CustodyDelayNotElapsed();
+        }
+
+        (bool success,) = payable(_custody).call{ value: _amount }("");
+        if (!success) revert TransferFailed();
+
+        emit Swept(_custody, _amount);
     }
 
     /*//////////////////////////////////////////////////////////////

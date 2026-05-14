@@ -33,6 +33,8 @@ interface IStakeManagerV2 {
     error WithdrawalBelowMinimum();
     error RedemptionNotEnabled();
     error InsufficientBnbBalance();
+    error CustodyDelayNotConfigured();
+    error CustodyDelayNotElapsed();
 
     function delegate(string calldata _referralId) external payable returns (uint256);
     function requestWithdraw(uint256 _amount, string calldata _referralId) external returns (uint256);
@@ -68,8 +70,4 @@ interface IStakeManagerV2 {
     event SetMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser);
     event SetMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps);
     event SetMinWithdrawableBnbx(uint256 _minWithdrawableBnbx);
-    event UndelegatedAllBnbFromAllOperators(uint256 _totalBnbUndelegated, uint256 _totalBnbxSupply);
-    event ClaimedAllBnbFromAllOperators(uint256 _totalClaimedBnb);
-    event RedeemedBnbxForBnb(address indexed _account, uint256 _amountInBnbX, uint256 _amountInBnb);
-    event SetRedemptionEnabled(bool _enabled);
 }
