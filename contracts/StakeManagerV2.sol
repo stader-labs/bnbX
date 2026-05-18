@@ -43,6 +43,10 @@ contract StakeManagerV2 is
     BatchWithdrawalRequest[] private batchWithdrawalRequests;
     mapping(address => uint256[]) private userRequests;
 
+    uint256 public totalBnbUndelegated;
+    uint256 public totalBnbxSupplyAtUndelegation;
+    bool public redemptionEnabled;
+
     // @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
         _disableInitializers();
@@ -145,7 +149,7 @@ contract StakeManagerV2 is
     /// @notice Claim the BNB from a withdrawal request.
     /// @param _idx user withdraw request array index
     /// @return The amount of BNB claimed.
-    function claimWithdrawal(uint256 _idx) external override nonReentrant whenNotPaused returns (uint256) {
+    function claimWithdrawal(uint256 _idx) external override nonReentrant returns (uint256) {
         WithdrawalRequest storage request = _extractRequest(msg.sender, _idx);
         if (request.claimed) revert AlreadyClaimed();
         if (!request.processed) revert NotProcessed();
@@ -163,6 +167,34 @@ contract StakeManagerV2 is
         return amountInBnb;
     }
 
+    /// @notice Redeem BNBx for BNB based on the snapshot exchange rate.
+    /// @param _amountInBnbX The amount of BNBx to burn and redeem.
+    /// @return The amount of BNB received.
+    /// @dev This function can only be called when redemption is enabled.
+    /// @dev Caller must approve the contract to burn the specified BNBx amount before calling.
+    /// @dev The exchange rate is based on totalBnbUndelegated and totalBnbxSupplyAtUndelegation snapshot.
+    function redeemBnbxForBnb(uint256 _amountInBnbX) external override nonReentrant returns (uint256) {
+        if (!redemptionEnabled) revert RedemptionNotEnabled();
+        if (_amountInBnbX == 0) revert ZeroAmount();
+        if (totalBnbxSupplyAtUndelegation == 0) revert ZeroAmount();
+        if (totalBnbUndelegated == 0) revert ZeroAmount();
+
+        // Calculate BNB amount based on snapshot exchange rate
+        uint256 amountInBnb = convertBnbXToBnb(_amountInBnbX);
+        
+        if (amountInBnb > address(this).balance) revert InsufficientBnbBalance();
+
+        // Burn BNBx
+        BNBX.burn(msg.sender, _amountInBnbX);
+
+        // Transfer BNB to user
+        (bool success,) = payable(msg.sender).call{ value: amountInBnb }("");
+        if (!success) revert TransferFailed();
+
+        emit RedeemedBnbxForBnb(msg.sender, _amountInBnbX, amountInBnb);
+        return amountInBnb;
+    }
+
     /*//////////////////////////////////////////////////////////////
                           operational methods
     //////////////////////////////////////////////////////////////*/
@@ -177,7 +209,6 @@ contract StakeManagerV2 is
     )
         external
         override
-        whenNotPaused
         onlyRole(OPERATOR_ROLE)
     {
         if (_operator == address(0)) {
@@ -188,7 +219,9 @@ contract StakeManagerV2 is
             revert OperatorNotExisted();
         }
 
-        updateER();
+        uint256 currentER = convertBnbXToBnb(1 ether);
+        _updateER();
+        _checkIfNewExchangeRateWithinLimits(currentER);
 
         address creditContract = STAKE_HUB.getValidatorCreditContract(_operator);
         uint256 amountInBnbXToBurn = _computeBnbXToBurn(_batchSize, creditContract);
@@ -213,7 +246,7 @@ contract StakeManagerV2 is
     }
 
     /// @notice Complete the undelegation process.
-    function completeBatchUndelegation() external override nonReentrant whenNotPaused {
+    function completeBatchUndelegation() external override nonReentrant onlyRole(OPERATOR_ROLE) {
         BatchWithdrawalRequest storage batchRequest = batchWithdrawalRequests[firstUnbondingBatchIndex];
         if (batchRequest.unlockTime > block.timestamp) revert Unbonding();
 
@@ -251,6 +284,66 @@ contract StakeManagerV2 is
         STAKE_HUB.redelegate(_fromOperator, _toOperator, shares, true);
 
         emit Redelegated(_fromOperator, _toOperator, _amount);
+    }
+
+    /// @notice Undelegate all BNB from all operators.
+    /// @dev This function undelegates all BNB from all registered operators and records
+    ///      the total BNB undelegated and total BNBx supply at the moment of execution.
+    /// @dev This function can only be called by an address with the MANAGER_ROLE.
+    function undelegateAllBnbFromAllOperators() external override onlyRole(MANAGER_ROLE) {
+        address[] memory operators = OPERATOR_REGISTRY.getOperators();
+        uint256 operatorsLength = operators.length;
+        uint256 totalUndelegatedBnb;
+
+        // Undelegate from all operators
+        for (uint256 i; i < operatorsLength;) {
+            address operator = operators[i];
+            address creditContract = STAKE_HUB.getValidatorCreditContract(operator);
+            uint256 pooledBnb = IStakeCredit(creditContract).getPooledBNB(address(this));
+            
+            if (pooledBnb > 0) {
+                uint256 shares = IStakeCredit(creditContract).getSharesByPooledBNB(pooledBnb);
+                uint256 amountToWithdrawFromOperator = IStakeCredit(creditContract).getPooledBNBByShares(shares);
+                STAKE_HUB.undelegate(operator, shares);
+                totalUndelegatedBnb += amountToWithdrawFromOperator;
+            }
+            
+            unchecked {
+                ++i;
+            }
+        }
+
+        // Record state variables at the moment of undelegation
+        totalBnbUndelegated = totalUndelegatedBnb;
+        totalBnbxSupplyAtUndelegation = BNBX.totalSupply();
+        
+        // Update totalDelegated
+        emit UndelegatedAllBnbFromAllOperators(totalUndelegatedBnb, totalBnbxSupplyAtUndelegation);
+    }
+
+    /// @notice Claim all undelegated BNB from all operators.
+    /// @dev This function claims all undelegated BNB from all registered operators.
+    /// @dev The BNB will be transferred to this contract after the unbonding period has passed.
+    /// @dev This function can only be called by an address with the MANAGER_ROLE.
+    /// @return totalClaimedBnb The total amount of BNB claimed from all operators.
+    function claimAllBnbFromAllOperators() external override nonReentrant onlyRole(MANAGER_ROLE) returns (uint256 totalClaimedBnb) {
+        address[] memory operators = OPERATOR_REGISTRY.getOperators();
+        uint256 operatorsLength = operators.length;
+        uint256 balanceBefore = address(this).balance;
+
+        for (uint256 i; i < operatorsLength;) {
+            address operator = operators[i];
+            STAKE_HUB.claim(operator, 1);
+            
+            unchecked {
+                ++i;
+            }
+        }
+
+        uint256 balanceAfter = address(this).balance;
+        totalClaimedBnb = balanceAfter - balanceBefore;
+
+        emit ClaimedAllBnbFromAllOperators(totalClaimedBnb);
     }
 
     /// @notice Update the Exchange Rate
@@ -336,6 +429,14 @@ contract StakeManagerV2 is
     function setMinWithdrawableBnbx(uint256 _minWithdrawableBnbx) external onlyRole(DEFAULT_ADMIN_ROLE) {
         minWithdrawableBnbx = _minWithdrawableBnbx;
         emit SetMinWithdrawableBnbx(_minWithdrawableBnbx);
+    }
+
+    /// @notice Toggle the redemption enabled state.
+    /// @param _enabled Whether to enable or disable redemption.
+    /// @dev Can only be called by an address with the MANAGER_ROLE.
+    function setRedemptionEnabled(bool _enabled) external onlyRole(MANAGER_ROLE) {
+        redemptionEnabled = _enabled;
+        emit SetRedemptionEnabled(_enabled);
     }
 
     /*//////////////////////////////////////////////////////////////
@@ -467,9 +568,19 @@ contract StakeManagerV2 is
     /// @param _amount The amount of BNB to convert.
     /// @return The amount of BnbX equivalent.
     function convertBnbToBnbX(uint256 _amount) public view override returns (uint256) {
-        uint256 totalShares = BNBX.totalSupply();
+        uint256 totalShares;
+        uint256 totalDelegated_;
+
+        if (redemptionEnabled) {
+            totalShares = totalBnbxSupplyAtUndelegation;
+            totalDelegated_ = totalBnbUndelegated;
+        } else {
+            totalShares = BNBX.totalSupply();
+            totalDelegated_ = totalDelegated;
+        }
+
         totalShares = totalShares == 0 ? 1 : totalShares;
-        uint256 totalDelegated_ = totalDelegated == 0 ? 1 : totalDelegated;
+        totalDelegated_ = totalDelegated_ == 0 ? 1 : totalDelegated_;
 
         return (_amount * totalShares) / totalDelegated_;
     }
@@ -478,10 +589,21 @@ contract StakeManagerV2 is
     /// @param _amountInBnbX The amount of BnbX to convert.
     /// @return The amount of BNB equivalent.
     function convertBnbXToBnb(uint256 _amountInBnbX) public view override returns (uint256) {
-        uint256 totalShares = BNBX.totalSupply();
-        totalShares = totalShares == 0 ? 1 : totalShares;
+        uint256 totalShares;
+        uint256 totalDelegated_;
 
-        return (_amountInBnbX * totalDelegated) / totalShares;
+        if (redemptionEnabled) {
+            totalShares = totalBnbxSupplyAtUndelegation;
+            totalDelegated_ = totalBnbUndelegated;
+        } else {
+            totalShares = BNBX.totalSupply();
+            totalDelegated_ = totalDelegated;
+        }
+
+        totalShares = totalShares == 0 ? 1 : totalShares;
+        totalDelegated_ = totalDelegated_ == 0 ? 1 : totalDelegated_;
+
+        return (_amountInBnbX * totalDelegated_) / totalShares;
     }
 
     /// @notice Get the total stake across all operators.
