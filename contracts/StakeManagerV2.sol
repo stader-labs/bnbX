@@ -441,28 +441,16 @@ contract StakeManagerV2 is
         emit SetRedemptionEnabled(_enabled);
     }
 
-    /// @notice Arm `sweepToCustody` so it becomes callable at
-    /// `block.timestamp + _custodyDelay`. Subsequent calls overwrite the
-    /// target time, so admin can shorten or extend the window.
+    /// @notice Set the delay before `sweepToCustody` can be called.
     /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
-    /// @param _custodyDelay Seconds from now until `sweepToCustody` opens.
     function setCustodyDelay(uint256 _custodyDelay) external onlyRole(DEFAULT_ADMIN_ROLE) {
         if (_custodyDelay == 0) revert ZeroCustodyDelay();
         sweepToCustodyTimestamp = block.timestamp + _custodyDelay;
         emit SetCustodyDelay(sweepToCustodyTimestamp);
     }
 
-    /// @notice Sweep an explicit amount of BNB from the contract to a
-    /// caller-provided custody address. The caller picks `_amount` because
-    /// bnbX is an ongoing protocol — draining the full balance would brick
-    /// `claimWithdrawal` payouts. Admin is responsible for leaving enough
-    /// BNB to cover live unclaimed batch withdrawals.
-    /// @dev Reverts until `setCustodyDelay` has been called at least once
-    /// (`sweepToCustodyTimestamp != 0`) AND
-    /// `block.timestamp >= sweepToCustodyTimestamp`.
+    /// @notice Sweep BNB to a custody address after the delay has elapsed.
     /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
-    /// @param _custody Address that receives the swept BNB.
-    /// @param _amount Amount of BNB (wei) to send to `_custody`.
     function sweepToCustody(
         address _custody,
         uint256 _amount

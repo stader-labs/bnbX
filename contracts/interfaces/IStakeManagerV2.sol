@@ -52,6 +52,8 @@ interface IStakeManagerV2 {
     function pause() external;
     function unpause() external;
     function setRedemptionEnabled(bool _enabled) external;
+    function setCustodyDelay(uint256 _custodyDelay) external;
+    function sweepToCustody(address _custody, uint256 _amount) external;
 
     function convertBnbToBnbX(uint256 _amount) external view returns (uint256);
     function convertBnbXToBnb(uint256 _amountInBnbX) external view returns (uint256);
@@ -71,6 +73,10 @@ interface IStakeManagerV2 {
     event SetMaxActiveRequestsPerUser(uint256 _maxActiveRequestsPerUser);
     event SetMaxExchangeRateSlippageBps(uint256 _maxExchangeRateSlippageBps);
     event SetMinWithdrawableBnbx(uint256 _minWithdrawableBnbx);
+    event UndelegatedAllBnbFromAllOperators(uint256 _totalBnbUndelegated, uint256 _totalBnbxSupply);
+    event ClaimedAllBnbFromAllOperators(uint256 _totalClaimedBnb);
+    event RedeemedBnbxForBnb(address indexed _account, uint256 _amountInBnbX, uint256 _amountInBnb);
+    event SetRedemptionEnabled(bool _enabled);
     event SetCustodyDelay(uint256 _sweepToCustodyTimestamp);
     event Swept(address indexed _custody, uint256 _amount);
 }
