@@ -29,7 +29,7 @@ contract StakeManagerV2Custody is Test {
     address internal attacker;
 
     event SetCustodyDelay(uint256 _sweepToCustodyTimestamp);
-    event Swept(address indexed _custody, uint256 _amount);
+    event SweptToCustody(address indexed _asset, address indexed _custody, uint256 _amount);
 
     function setUp() public {
         string memory rpcUrl = vm.envString("BSC_MAINNET_RPC_URL");
@@ -58,7 +58,7 @@ contract StakeManagerV2Custody is Test {
 
         vm.expectRevert();
         vm.prank(attacker);
-        stakeManagerV2.sweepToCustody(custody, 1 ether);
+        stakeManagerV2.sweepToCustody(address(0), custody);
     }
 
     // -------- setCustodyDelay --------
@@ -104,11 +104,11 @@ contract StakeManagerV2Custody is Test {
 
         vm.prank(admin);
         vm.expectRevert(IStakeManagerV2.CustodyDelayNotElapsed.selector);
-        stakeManagerV2.sweepToCustody(custody, 1 ether);
+        stakeManagerV2.sweepToCustody(address(0), custody);
 
         skip(7 days);
         vm.prank(admin);
-        stakeManagerV2.sweepToCustody(custody, 1 ether);
+        stakeManagerV2.sweepToCustody(address(0), custody);
         assertEq(custody.balance, 1 ether);
     }
 
@@ -118,8 +118,8 @@ contract StakeManagerV2Custody is Test {
         _fundContract(1 ether);
 
         vm.prank(admin);
-        vm.expectRevert(IStakeManagerV2.CustodyDelayNotConfigured.selector);
-        stakeManagerV2.sweepToCustody(custody, 1 ether);
+        vm.expectRevert(IStakeManagerV2.CustodyDelayNotElapsed.selector);
+        stakeManagerV2.sweepToCustody(address(0), custody);
     }
 
     function test_sweepToCustody_revertsBeforeTargetElapsed() public {
@@ -129,7 +129,7 @@ contract StakeManagerV2Custody is Test {
 
         vm.prank(admin);
         vm.expectRevert(IStakeManagerV2.CustodyDelayNotElapsed.selector);
-        stakeManagerV2.sweepToCustody(custody, 1 ether);
+        stakeManagerV2.sweepToCustody(address(0), custody);
     }
 
     function test_sweepToCustody_revertsOnZeroCustody() public {
@@ -139,17 +139,17 @@ contract StakeManagerV2Custody is Test {
 
         vm.prank(admin);
         vm.expectRevert(IStakeManagerV2.ZeroAddress.selector);
-        stakeManagerV2.sweepToCustody(address(0), 1 ether);
+        stakeManagerV2.sweepToCustody(address(0), address(0));
     }
 
     function test_sweepToCustody_revertsOnZeroAmount() public {
         _arm(1 days);
         skip(1 days);
-        _fundContract(1 ether);
+        // contract has 0 BNB — full-balance sweep reverts
 
         vm.prank(admin);
         vm.expectRevert(IStakeManagerV2.ZeroAmount.selector);
-        stakeManagerV2.sweepToCustody(custody, 0);
+        stakeManagerV2.sweepToCustody(address(0), custody);
     }
 
     function test_sweepToCustody_revertsOnFailedTransfer() public {
@@ -161,40 +161,43 @@ contract StakeManagerV2Custody is Test {
 
         vm.prank(admin);
         vm.expectRevert(IStakeManagerV2.TransferFailed.selector);
-        stakeManagerV2.sweepToCustody(rejector, 1 ether);
+        stakeManagerV2.sweepToCustody(address(0), rejector);
     }
 
     // -------- sweepToCustody happy path --------
 
-    function test_sweepToCustody_movesFundsAndEmits() public {
+    function test_sweepToCustody_sweepsFullBalanceAndEmits() public {
         _arm(1 days);
         skip(1 days);
         _fundContract(5 ether);
 
-        uint256 preBal = address(stakeManagerV2).balance;
         uint256 preCustody = custody.balance;
 
-        vm.expectEmit(true, false, false, true);
-        emit Swept(custody, 2 ether);
+        vm.expectEmit(true, true, false, true);
+        emit SweptToCustody(address(0), custody, 5 ether);
 
         vm.prank(admin);
-        stakeManagerV2.sweepToCustody(custody, 2 ether);
+        stakeManagerV2.sweepToCustody(address(0), custody);
 
-        assertEq(custody.balance, preCustody + 2 ether);
-        assertEq(address(stakeManagerV2).balance, preBal - 2 ether);
+        assertEq(custody.balance, preCustody + 5 ether);
+        assertEq(address(stakeManagerV2).balance, 0);
+        assertTrue(stakeManagerV2.assetCustodied());
     }
 
-    function test_sweepToCustody_partialThenRemainder() public {
+    function test_sweepToCustody_setsAssetCustodiedAndBlocksRedeem() public {
         _arm(1 days);
         skip(1 days);
-        _fundContract(3 ether);
+        _fundContract(1 ether);
 
-        vm.startPrank(admin);
-        stakeManagerV2.sweepToCustody(custody, 1 ether);
-        stakeManagerV2.sweepToCustody(custody, 2 ether);
-        vm.stopPrank();
+        assertFalse(stakeManagerV2.assetCustodied());
 
-        assertEq(custody.balance, 3 ether);
+        vm.prank(admin);
+        stakeManagerV2.sweepToCustody(address(0), custody);
+
+        assertTrue(stakeManagerV2.assetCustodied());
+
+        vm.expectRevert(IStakeManagerV2.AssetCustodied.selector);
+        stakeManagerV2.redeemBnbxForBnb(1 ether);
     }
 
     // -------- helpers --------
