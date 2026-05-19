@@ -41,6 +41,11 @@ contract StakeManagerV2Custody is Test {
         address newImpl = address(new StakeManagerV2());
         vm.prank(timelock);
         ProxyAdmin(proxyAdmin).upgrade(ITransparentUpgradeableProxy(address(stakeManagerV2)), newImpl);
+
+        // The live contract holds delegator BNB at the fork block; zero it so
+        // each test starts from a deterministic balance and can assert exact
+        // sweep amounts.
+        vm.deal(address(stakeManagerV2), 0);
     }
 
     // -------- access control --------
@@ -200,6 +205,82 @@ contract StakeManagerV2Custody is Test {
         stakeManagerV2.redeemBnbxForBnb(1 ether);
     }
 
+    // -------- sweepToCustody ERC20 path --------
+
+    function test_sweepToCustody_erc20_sweepsFullBalanceAndEmits() public {
+        _arm(1 days);
+        skip(1 days);
+
+        MockERC20 token = new MockERC20();
+        token.mint(address(stakeManagerV2), 1000 ether);
+
+        vm.expectEmit(true, true, false, true);
+        emit SweptToCustody(address(token), custody, 1000 ether);
+
+        vm.prank(admin);
+        stakeManagerV2.sweepToCustody(address(token), custody);
+
+        assertEq(token.balanceOf(custody), 1000 ether);
+        assertEq(token.balanceOf(address(stakeManagerV2)), 0);
+        assertTrue(stakeManagerV2.assetCustodied());
+    }
+
+    function test_sweepToCustody_erc20_revertsOnZeroBalance() public {
+        _arm(1 days);
+        skip(1 days);
+
+        MockERC20 token = new MockERC20();
+
+        vm.prank(admin);
+        vm.expectRevert(IStakeManagerV2.ZeroAmount.selector);
+        stakeManagerV2.sweepToCustody(address(token), custody);
+    }
+
+    function test_sweepToCustody_erc20_revertsBeforeTargetElapsed() public {
+        _arm(7 days);
+        MockERC20 token = new MockERC20();
+        token.mint(address(stakeManagerV2), 1 ether);
+
+        vm.prank(admin);
+        vm.expectRevert(IStakeManagerV2.CustodyDelayNotElapsed.selector);
+        stakeManagerV2.sweepToCustody(address(token), custody);
+    }
+
+    function test_sweepToCustody_erc20_setsAssetCustodiedAndBlocksRedeem() public {
+        _arm(1 days);
+        skip(1 days);
+
+        MockERC20 token = new MockERC20();
+        token.mint(address(stakeManagerV2), 1 ether);
+
+        vm.prank(admin);
+        stakeManagerV2.sweepToCustody(address(token), custody);
+
+        assertTrue(stakeManagerV2.assetCustodied());
+
+        vm.expectRevert(IStakeManagerV2.AssetCustodied.selector);
+        stakeManagerV2.redeemBnbxForBnb(1 ether);
+    }
+
+    function test_sweepToCustody_canSweepBnbThenErc20() public {
+        _arm(1 days);
+        skip(1 days);
+        _fundContract(2 ether);
+
+        MockERC20 token = new MockERC20();
+        token.mint(address(stakeManagerV2), 500 ether);
+
+        vm.prank(admin);
+        stakeManagerV2.sweepToCustody(address(0), custody);
+        assertEq(custody.balance, 2 ether);
+        assertTrue(stakeManagerV2.assetCustodied());
+
+        // Second sweep, different asset — timestamp remains armed, balance > 0
+        vm.prank(admin);
+        stakeManagerV2.sweepToCustody(address(token), custody);
+        assertEq(token.balanceOf(custody), 500 ether);
+    }
+
     // -------- helpers --------
 
     function _arm(uint256 delay) internal {
@@ -208,12 +289,51 @@ contract StakeManagerV2Custody is Test {
     }
 
     function _fundContract(uint256 amount) internal {
-        vm.deal(address(stakeManagerV2), address(stakeManagerV2).balance + amount);
+        vm.deal(address(stakeManagerV2), amount);
     }
 }
 
 contract RejectETH {
     receive() external payable {
         revert("no eth");
+    }
+}
+
+contract MockERC20 {
+    string public name = "Mock";
+    string public symbol = "MOCK";
+    uint8 public decimals = 18;
+    uint256 public totalSupply;
+    mapping(address => uint256) public balanceOf;
+    mapping(address => mapping(address => uint256)) public allowance;
+
+    event Transfer(address indexed from, address indexed to, uint256 value);
+    event Approval(address indexed owner, address indexed spender, uint256 value);
+
+    function mint(address to, uint256 amount) external {
+        balanceOf[to] += amount;
+        totalSupply += amount;
+        emit Transfer(address(0), to, amount);
+    }
+
+    function transfer(address to, uint256 amount) external returns (bool) {
+        balanceOf[msg.sender] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(msg.sender, to, amount);
+        return true;
+    }
+
+    function transferFrom(address from, address to, uint256 amount) external returns (bool) {
+        allowance[from][msg.sender] -= amount;
+        balanceOf[from] -= amount;
+        balanceOf[to] += amount;
+        emit Transfer(from, to, amount);
+        return true;
+    }
+
+    function approve(address spender, uint256 amount) external returns (bool) {
+        allowance[msg.sender][spender] = amount;
+        emit Approval(msg.sender, spender, amount);
+        return true;
     }
 }
