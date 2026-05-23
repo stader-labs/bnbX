@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "description": "Alerts on Off Chain Bot Delays and Failures",
   "chainIds": [
-    1
+    56
   ],
   "scripts": {
     "build": "tsc",

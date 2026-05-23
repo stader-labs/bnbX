@@ -6,16 +6,23 @@
 
 ## Alerts
 
+- BNBx-REWARD-CHANGE
+
+  - Fired when Reward changes by more than 20 %
+  - Severity is set to "Medium"
+  - Type is set to "Info"
+  - metadata: lastRewardAmount, curentRewardAmount
+
 - BNBx-LARGE-MINT
 
-  - Fired when BNBx is minted in large amount (500 BNBx)
+  - Fired when BNBx is minted in large amount (250 BNBx)
   - Severity is set to "High"
   - Type is set to "Info"
   - metadata: to, value
 
 - BNBx-LARGE-UNSTAKE
 
-  - Fired when User unstakes large amount of BNBx (500 BNBx)
+  - Fired when User unstakes large amount of BNBx (250 BNBx)
   - Severity is set to "High"
   - Type is set to "Info"
   - metadata: account, amountInBnbX,
@@ -40,3 +47,11 @@
   - Severity is set to "High"
   - Type is set to "Suspicious"
   - metadata: lastSupply, currentSupply
+
+- BNBX-TIMELOCK
+
+  - Fired when contract upgrade proposal is scheduled
+  - Severity is set to "High"
+  - Type is set to "Info"
+  - metadata: delay
+  - addresses: [timelock, proxy_admin]
