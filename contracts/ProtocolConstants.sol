@@ -7,6 +7,6 @@ library ProtocolConstants {
 
     // values
     uint256 public constant MAX_NEGLIGIBLE_AMOUNT = 1e15;
-    uint256 public constant MAX_ALLOWED_FEE_BPS = 5000;
+    uint256 public constant MAX_ALLOWED_FEE_BPS = 10_000;
     uint256 public constant BPS_DENOM = 10_000;
 }
