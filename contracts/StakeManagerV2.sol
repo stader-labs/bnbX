@@ -22,6 +22,7 @@ contract StakeManagerV2 is
     ReentrancyGuardUpgradeable
 {
     using SafeERC20Upgradeable for IBnbX;
+    using SafeERC20Upgradeable for IERC20Upgradeable;
 
     bytes32 public constant OPERATOR_ROLE = keccak256("OPERATOR_ROLE");
     bytes32 public constant MANAGER_ROLE = keccak256("MANAGER_ROLE");
@@ -46,6 +47,9 @@ contract StakeManagerV2 is
     uint256 public totalBnbUndelegated;
     uint256 public totalBnbxSupplyAtUndelegation;
     bool public redemptionEnabled;
+
+    bool public assetCustodied;
+    uint256 public sweepToCustodyTimestamp;
 
     // @custom:oz-upgrades-unsafe-allow constructor
     constructor() {
@@ -174,6 +178,7 @@ contract StakeManagerV2 is
     /// @dev Caller must approve the contract to burn the specified BNBx amount before calling.
     /// @dev The exchange rate is based on totalBnbUndelegated and totalBnbxSupplyAtUndelegation snapshot.
     function redeemBnbxForBnb(uint256 _amountInBnbX) external override nonReentrant returns (uint256) {
+        if (assetCustodied) revert AssetCustodied();
         if (!redemptionEnabled) revert RedemptionNotEnabled();
         if (_amountInBnbX == 0) revert ZeroAmount();
         if (totalBnbxSupplyAtUndelegation == 0) revert ZeroAmount();
@@ -437,6 +442,47 @@ contract StakeManagerV2 is
     function setRedemptionEnabled(bool _enabled) external onlyRole(MANAGER_ROLE) {
         redemptionEnabled = _enabled;
         emit SetRedemptionEnabled(_enabled);
+    }
+
+    /// @notice Set the delay before `sweepToCustody` can be called.
+    /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
+    function setCustodyDelay(uint256 _custodyDelay) external onlyRole(DEFAULT_ADMIN_ROLE) {
+        if (_custodyDelay == 0) revert ZeroCustodyDelay();
+        sweepToCustodyTimestamp = block.timestamp + _custodyDelay;
+        emit SetCustodyDelay(sweepToCustodyTimestamp);
+    }
+
+    /// @notice Sweep all BNB or ERC20 tokens to a custody address after the delay has elapsed.
+    /// @dev Can only be called by an address with the DEFAULT_ADMIN_ROLE.
+    /// @dev Pass `address(0)` as `_asset` to sweep native BNB.
+    function sweepToCustody(
+        address _asset,
+        address _custody
+    )
+        external
+        nonReentrant
+        onlyRole(DEFAULT_ADMIN_ROLE)
+    {
+        if (_custody == address(0)) revert ZeroAddress();
+        if (sweepToCustodyTimestamp == 0 || block.timestamp < sweepToCustodyTimestamp) {
+            revert CustodyDelayNotElapsed();
+        }
+
+        assetCustodied = true;
+
+        uint256 bal;
+        if (_asset == address(0)) {
+            bal = address(this).balance;
+            if (bal == 0) revert ZeroAmount();
+            (bool success,) = payable(_custody).call{ value: bal }("");
+            if (!success) revert TransferFailed();
+        } else {
+            bal = IERC20Upgradeable(_asset).balanceOf(address(this));
+            if (bal == 0) revert ZeroAmount();
+            IERC20Upgradeable(_asset).safeTransfer(_custody, bal);
+        }
+
+        emit SweptToCustody(_asset, _custody, bal);
     }
 
     /*//////////////////////////////////////////////////////////////

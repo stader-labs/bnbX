@@ -44,7 +44,7 @@ contract StakeManagerV2BasicChecks is StakeManagerV2Setup {
         assertEq(stakeManagerV2.feeBps(), newFeeBps);
 
         vm.expectRevert(IStakeManagerV2.MaxLimitReached.selector);
-        stakeManagerV2.setFeeBps(5001);
+        stakeManagerV2.setFeeBps(10_001);
     }
 
     function test_setMaxActiveRequestsPerUser() public {
